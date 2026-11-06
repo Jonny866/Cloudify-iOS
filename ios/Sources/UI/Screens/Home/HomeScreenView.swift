@@ -10,29 +10,97 @@ public struct HomeScreenView: View {
 
     @State private var selectedFilter: String = "Все"
     @State private var waveTracks: [Track] = []
+    @State private var popularForYou: [Track] = []
     @State private var actionTrack: Track? = nil
+    @State private var isLoadingInitial: Bool = false
 
     private let filterTabs = ["Все", "Музыка", "Подкасты", "Аудиокниги"]
 
+    public init(
+        onArtistClick: @escaping (String) -> Void,
+        onProfileClick: @escaping () -> Void
+    ) {
+        self.onArtistClick = onArtistClick
+        self.onProfileClick = onProfileClick
+    }
+
+    private var greeting: String {
+        let hour = Calendar.current.component(.hour, from: Date())
+        switch hour {
+        case 5...11: return "Доброе утро"
+        case 12...17: return "Добрый день"
+        case 18...22: return "Добрый вечер"
+        default: return "Доброй ночи"
+        }
+    }
+
     private var popularArtists: [Artist] {
-        [
-            Artist(id: "art_1", name: "GONE.Fludd", artworkUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400", monthlyListeners: "1.4 млн"),
-            Artist(id: "art_2", name: "Miyagi & Эндшпиль", artworkUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400", monthlyListeners: "2.1 млн"),
-            Artist(id: "art_3", name: "KORDHELL", artworkUrl: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=400", monthlyListeners: "890 тыс."),
-            Artist(id: "art_4", name: "DVRST", artworkUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400", monthlyListeners: "670 тыс."),
-            Artist(id: "art_5", name: "dabbackwood", artworkUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400", monthlyListeners: "420 тыс.")
-        ]
+        repo.getPopularArtists()
     }
 
     private var featuredRelease: Track {
         repo.favorites.first(where: { $0.artist == "GONE.Fludd" }) ??
         Track(
-            id: "rel_gone_fludd_1",
+            id: "2428883184",
             title: "КОД ГИАС",
             artist: "GONE.Fludd",
-            artworkUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500",
-            streamUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"
+            artworkUrl: CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/artworks-MSGdnR5dCyyXfnbf-asrmMg-t500x500.jpg"),
+            streamUrl: CloudifyAPI.getStreamUrl(webpageUrl: "https://soundcloud.com/gonefluddmus/kod-gias")?.absoluteString ?? "",
+            durationMs: 121655,
+            genre: "Hip-Hop"
         )
+    }
+
+    // Quick Access items (up to 8 items, 1st is Liked Songs)
+    private var quickAccessItems: [QuickAccessItem] {
+        var items: [QuickAccessItem] = []
+
+        // 1. Liked Songs card
+        items.append(
+            QuickAccessItem(
+                id: "liked_songs",
+                title: "Любимые треки",
+                artworkUrl: "",
+                isFavorites: true,
+                tracks: repo.favorites
+            )
+        )
+
+        // 2-8 from history or artists
+        var seenArtists = Set<String>()
+        for track in repo.recentTracks {
+            if seenArtists.insert(track.artist).inserted {
+                items.append(
+                    QuickAccessItem(
+                        id: "recent_\(track.id)",
+                        title: track.artist,
+                        artworkUrl: track.artworkUrl,
+                        isFavorites: false,
+                        tracks: [track]
+                    )
+                )
+                if items.count >= 8 { break }
+            }
+        }
+
+        if items.count < 8 {
+            for artist in popularArtists {
+                if seenArtists.insert(artist.name).inserted {
+                    items.append(
+                        QuickAccessItem(
+                            id: "artist_\(artist.id)",
+                            title: artist.name,
+                            artworkUrl: artist.artworkUrl,
+                            isFavorites: false,
+                            tracks: []
+                        )
+                    )
+                    if items.count >= 8 { break }
+                }
+            }
+        }
+
+        return items
     }
 
     public var body: some View {
@@ -67,7 +135,7 @@ public struct HomeScreenView: View {
         }
         .background(Color.deepBlack.edgesIgnoringSafeArea(.all))
         .task {
-            loadWaveTracks()
+            await loadInitialMusic()
         }
         .sheet(item: $actionTrack) { track in
             TrackActionSheet(
@@ -96,9 +164,14 @@ public struct HomeScreenView: View {
                     .frame(width: 36, height: 36)
                     .clipShape(Circle())
                 } else {
-                    Image(systemName: "person.circle.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(.textSecondary)
+                    ZStack {
+                        Circle()
+                            .fill(Color(hex: 0x282828))
+                            .frame(width: 36, height: 36)
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 16))
+                            .foregroundColor(.textPrimary)
+                    }
                 }
             }
 
@@ -113,7 +186,7 @@ public struct HomeScreenView: View {
                         }) {
                             Text(tab)
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(isSelected ? .black : .textPrimary)
+                                .foregroundColor(isSelected ? (theme.currentTheme == .yellow ? .black : .white) : .textPrimary)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
                                 .background(isSelected ? theme.currentTheme.primary : Color(hex: 0x2A2A2A))
@@ -123,10 +196,8 @@ public struct HomeScreenView: View {
                 }
             }
 
-            // Cloudify Logo
-            Button(action: {
-                theme.toggleTheme()
-            }) {
+            // Cloudify Logo (opens profile / toggles theme)
+            Button(action: onProfileClick) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(theme.currentTheme == .yellow ? Color(hex: 0x1E1A0E) : Color(hex: 0x13101E))
@@ -135,31 +206,29 @@ public struct HomeScreenView: View {
                     Image(uiImage: UIImage(named: theme.currentTheme.logoImageName) ?? UIImage())
                         .resizable()
                         .renderingMode(.original)
-                        .frame(width: 30, height: 30)
+                        .frame(width: 28, height: 28)
                 }
             }
         }
         .padding(.horizontal, 16)
     }
 
-    // Quick Access 2-Column Grid
+    // Quick Access 2-Column Grid (8 Cards)
     private var quickAccessGrid: some View {
-        let items: [QuickAccessItem] = [
-            QuickAccessItem(id: "fav", title: "Любимые треки", artworkUrl: "", isFavorites: true, tracks: repo.favorites),
-            QuickAccessItem(id: "dab", title: "dabbackwood", artworkUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300"),
-            QuickAccessItem(id: "gone", title: "GONE.Fludd", artworkUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300"),
-            QuickAccessItem(id: "miyagi", title: "Miyagi & Эндшпиль", artworkUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=300"),
-            QuickAccessItem(id: "kord", title: "KORDHELL", artworkUrl: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=300"),
-            QuickAccessItem(id: "dvrst", title: "DVRST", artworkUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300")
+        let columns = [
+            GridItem(.flexible(), spacing: 8),
+            GridItem(.flexible(), spacing: 8)
         ]
 
-        return LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-            ForEach(items) { item in
+        return LazyVGrid(columns: columns, spacing: 8) {
+            ForEach(quickAccessItems) { item in
                 Button(action: {
                     if item.isFavorites {
                         if let first = repo.favorites.first {
                             player.playTrack(first, in: repo.favorites)
                         }
+                    } else if !item.tracks.isEmpty {
+                        player.playTrack(item.tracks[0], in: item.tracks)
                     } else {
                         onArtistClick(item.title)
                     }
@@ -176,24 +245,26 @@ public struct HomeScreenView: View {
                                     .font(.system(size: 20))
                                     .foregroundColor(.white)
                             }
-                            .frame(width: 52, height: 52)
+                            .frame(width: 54, height: 54)
                         } else {
                             AsyncImage(url: URL(string: item.artworkUrl)) { img in
                                 img.resizable().aspectRatio(contentMode: .fill)
                             } placeholder: {
-                                Color.darkSurface
+                                Color.darkSurfaceVariant
                             }
-                            .frame(width: 52, height: 52)
+                            .frame(width: 54, height: 54)
+                            .clipped()
                         }
 
                         Text(item.title)
-                            .font(.system(size: 13, weight: .bold))
+                            .font(.system(size: 12, weight: .bold))
                             .foregroundColor(.textPrimary)
                             .lineLimit(2)
                             .multilineTextAlignment(.leading)
 
                         Spacer()
                     }
+                    .frame(height: 54)
                     .background(Color(hex: 0x242424))
                     .clipShape(RoundedRectangle(cornerRadius: 6))
                 }
@@ -202,71 +273,86 @@ public struct HomeScreenView: View {
         .padding(.horizontal, 16)
     }
 
-    // "Моя Волна" Banner
+    // "Моя Волна" Interactive Banner
     private var myWaveBanner: some View {
-        Button(action: {
-            if !waveTracks.isEmpty {
+        let isWavePlaying = player.currentTrack?.genre == "Wave" && player.isPlaying
+
+        return Button(action: {
+            if isWavePlaying {
+                player.togglePlayPause()
+            } else if !waveTracks.isEmpty {
                 player.playTrack(waveTracks[0], in: waveTracks)
-            } else if let first = repo.favorites.first {
-                player.playTrack(first, in: repo.favorites)
+            } else {
+                Task {
+                    if let tracks = try? await CloudifyAPI.shared.getWaveTracks(), !tracks.isEmpty {
+                        await MainActor.run {
+                            self.waveTracks = tracks
+                            player.playTrack(tracks[0], in: tracks)
+                        }
+                    }
+                }
             }
         }) {
             ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 20)
                     .fill(
                         LinearGradient(
-                            colors: [theme.currentTheme.dark, theme.currentTheme.primary.opacity(0.85)],
+                            colors: theme.currentTheme == .yellow
+                                ? [Color(hex: 0x713F12), Color(hex: 0xCA8A04), Color(hex: 0x854D0E)]
+                                : [Color(hex: 0x4C1D95), Color(hex: 0x6D28D9), Color(hex: 0x3B0764)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
 
                 HStack {
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
                             Image(systemName: "waveform")
                                 .font(.system(size: 14, weight: .bold))
+                                .foregroundColor(theme.currentTheme.light)
                             Text("МОЯ ВОЛНА")
                                 .font(.system(size: 12, weight: .bold))
-                                .tracking(1.2)
+                                .tracking(1.5)
+                                .foregroundColor(theme.currentTheme.light)
                         }
-                        .foregroundColor(.black.opacity(0.8))
 
-                        Text("Бесконечный поток под ваш вкус")
-                            .font(.system(size: 16, weight: .black))
-                            .foregroundColor(.black)
+                        Text(isWavePlaying ? "Волна активна • Играет" : "Бесконечный поток музыки")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
 
-                        Text("Подбирается автоматически нейросетью")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundColor(.black.opacity(0.7))
+                        Text("Подстраивается под ваш вкус")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color.white.opacity(0.8))
                     }
 
                     Spacer()
 
                     ZStack {
                         Circle()
-                            .fill(Color.black.opacity(0.85))
-                            .frame(width: 48, height: 48)
+                            .fill(Color.white)
+                            .frame(width: 52, height: 52)
+                            .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 3)
 
-                        Image(systemName: (player.isPlaying && player.currentTrack?.genre == "Wave") ? "pause.fill" : "play.fill")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(theme.currentTheme.primary)
+                        Image(systemName: isWavePlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 22))
+                            .foregroundColor(Color(hex: 0x1F1F1F))
+                            .offset(x: isWavePlaying ? 0 : 2)
                     }
                 }
-                .padding(18)
+                .padding(20)
             }
-            .frame(height: 105)
+            .frame(height: 120)
             .padding(.horizontal, 16)
         }
     }
 
-    // Featured Release Card
+    // Featured Release Card: GONE.Fludd "КОД ГИАС"
     private var featuredReleaseCard: some View {
         let release = featuredRelease
-        let isFav = repo.isFavorite(release.id)
 
         return VStack(alignment: .leading, spacing: 10) {
-            // Header
+            // Header with artist avatar
             Button(action: {
                 onArtistClick(release.artist)
             }) {
@@ -274,9 +360,9 @@ public struct HomeScreenView: View {
                     AsyncImage(url: URL(string: release.artworkUrl)) { img in
                         img.resizable().aspectRatio(contentMode: .fill)
                     } placeholder: {
-                        Color.darkSurface
+                        Color.darkSurfaceVariant
                     }
-                    .frame(width: 44, height: 44)
+                    .frame(width: 46, height: 46)
                     .clipShape(Circle())
 
                     VStack(alignment: .leading, spacing: 2) {
@@ -285,32 +371,35 @@ public struct HomeScreenView: View {
                             .foregroundColor(.textMuted)
 
                         Text(release.artist)
-                            .font(.system(size: 18, weight: .bold))
+                            .font(.system(size: 20, weight: .bold))
                             .foregroundColor(.textPrimary)
                     }
-
-                    Spacer()
                 }
             }
+            .padding(.horizontal, 16)
 
-            // Big Card
-            HStack(spacing: 0) {
-                AsyncImage(url: URL(string: release.artworkUrl)) { img in
-                    img.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Color.darkSurface
-                }
-                .frame(width: 125, height: 125)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+            // Split Big Card
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.darkSurfaceVariant)
 
-                VStack(alignment: .leading, spacing: 8) {
-                    VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 14) {
+                    AsyncImage(url: URL(string: release.artworkUrl)) { img in
+                        img.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Color.darkSurface
+                    }
+                    .frame(width: 130, height: 130)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("Сингл")
                             .font(.system(size: 11))
                             .foregroundColor(.textMuted)
 
                         Text(release.title)
-                            .font(.system(size: 16, weight: .bold))
+                            .font(.system(size: 17, weight: .bold))
                             .foregroundColor(.textPrimary)
                             .lineLimit(1)
 
@@ -318,99 +407,102 @@ public struct HomeScreenView: View {
                             .font(.system(size: 13))
                             .foregroundColor(.textSecondary)
                             .lineLimit(1)
-                    }
-
-                    Spacer()
-
-                    HStack {
-                        Button(action: {
-                            actionTrack = release
-                        }) {
-                            Image(systemName: "ellipsis")
-                                .font(.system(size: 16))
-                                .foregroundColor(.textSecondary)
-                                .frame(width: 32, height: 32)
-                        }
 
                         Spacer()
 
-                        Button(action: {
-                            repo.toggleFavorite(release)
-                        }) {
-                            Image(systemName: isFav ? "heart.fill" : "heart")
-                                .font(.system(size: 20))
-                                .foregroundColor(isFav ? .accentPink : .textSecondary)
-                                .frame(width: 34, height: 34)
-                        }
+                        HStack {
+                            Button(action: {
+                                actionTrack = release
+                            }) {
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.textSecondary)
+                                    .frame(width: 32, height: 32)
+                            }
 
-                        Button(action: {
-                            player.playTrack(release, in: [release])
-                        }) {
-                            ZStack {
-                                Circle()
-                                    .fill(theme.currentTheme.primary)
-                                    .frame(width: 40, height: 40)
+                            Spacer()
 
-                                Image(systemName: "play.fill")
-                                    .font(.system(size: 18, weight: .bold))
-                                    .foregroundColor(.black)
+                            Button(action: {
+                                repo.toggleFavorite(release)
+                            }) {
+                                Image(systemName: repo.isFavorite(release.id) ? "heart.fill" : "heart")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(repo.isFavorite(release.id) ? .accentPink : .textSecondary)
+                                    .frame(width: 32, height: 32)
+                            }
+
+                            Button(action: {
+                                player.playTrack(release, in: [release])
+                            }) {
+                                ZStack {
+                                    Circle()
+                                        .fill(theme.currentTheme.primary)
+                                        .frame(width: 42, height: 42)
+
+                                    Image(systemName: (player.currentTrack?.id == release.id && player.isPlaying) ? "pause.fill" : "play.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
+                                        .offset(x: (player.currentTrack?.id == release.id && player.isPlaying) ? 0 : 2)
+                                }
                             }
                         }
                     }
+                    .padding(.vertical, 12)
+                    .padding(.trailing, 14)
                 }
-                .padding(12)
             }
-            .frame(height: 125)
-            .background(Color.darkSurfaceVariant)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .onTapGesture {
-                player.playTrack(release, in: [release])
-            }
+            .frame(height: 130)
+            .padding(.horizontal, 16)
         }
-        .padding(.horizontal, 16)
     }
 
-    // Recent Tracks Section
+    // "Недавно прослушанные треки"
     private var recentTracksSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Недавно прослушанные")
-                .font(.system(size: 20, weight: .bold))
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Недавно прослушанные треки")
+                .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.textPrimary)
                 .padding(.horizontal, 16)
 
-            ForEach(repo.recentTracks.prefix(4)) { track in
-                TrackRowView(
-                    track: track,
-                    isCurrent: player.currentTrack?.id == track.id,
-                    isPlaying: player.isPlaying,
-                    isFavorite: repo.isFavorite(track.id),
-                    onPlay: {
-                        player.playTrack(track, in: repo.recentTracks)
-                    },
-                    onFavoriteToggle: {
-                        repo.toggleFavorite(track)
-                    },
-                    onMoreClick: {
-                        actionTrack = track
-                    }
-                )
+            VStack(spacing: 4) {
+                ForEach(repo.recentTracks.prefix(4)) { track in
+                    TrackRowView(
+                        track: track,
+                        isCurrent: player.currentTrack?.id == track.id,
+                        isPlaying: player.isPlaying,
+                        isFavorite: repo.isFavorite(track.id),
+                        isDownloaded: repo.downloadedIds.contains(track.id),
+                        onPlay: {
+                            player.playTrack(track, in: repo.recentTracks)
+                        },
+                        onFavoriteToggle: {
+                            repo.toggleFavorite(track)
+                        },
+                        onMoreClick: {
+                            actionTrack = track
+                        }
+                    )
+                }
             }
+            .padding(.horizontal, 8)
         }
     }
 
-    // Popular For You
+    // "Популярно для тебя"
     private var popularForYouSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let tracks = popularForYou.isEmpty ? repo.favorites : popularForYou
+
+        return VStack(alignment: .leading, spacing: 12) {
             Text("Популярно для тебя")
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.textPrimary)
                 .padding(.horizontal, 16)
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 14) {
-                    ForEach(repo.favorites) { track in
+                    ForEach(tracks.prefix(8)) { track in
                         Button(action: {
-                            player.playTrack(track, in: repo.favorites)
+                            player.playTrack(track, in: tracks)
                         }) {
                             VStack(alignment: .leading, spacing: 6) {
                                 AsyncImage(url: URL(string: track.artworkUrl)) { img in
@@ -418,8 +510,8 @@ public struct HomeScreenView: View {
                                 } placeholder: {
                                     Color.darkSurface
                                 }
-                                .frame(width: 135, height: 135)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                                .frame(width: 140, height: 140)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
 
                                 Text(track.title)
                                     .font(.system(size: 14, weight: .bold))
@@ -431,7 +523,7 @@ public struct HomeScreenView: View {
                                     .foregroundColor(.textSecondary)
                                     .lineLimit(1)
                             }
-                            .frame(width: 135)
+                            .frame(width: 140)
                         }
                     }
                 }
@@ -440,11 +532,11 @@ public struct HomeScreenView: View {
         }
     }
 
-    // Popular Artists
+    // "Популярные исполнители"
     private var popularArtistsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Популярные исполнители")
-                .font(.system(size: 20, weight: .bold))
+                .font(.system(size: 18, weight: .bold))
                 .foregroundColor(.textPrimary)
                 .padding(.horizontal, 16)
 
@@ -454,13 +546,18 @@ public struct HomeScreenView: View {
                         Button(action: {
                             onArtistClick(artist.name)
                         }) {
-                            VStack(spacing: 6) {
+                            VStack(spacing: 8) {
                                 AsyncImage(url: URL(string: artist.artworkUrl)) { img in
                                     img.resizable().aspectRatio(contentMode: .fill)
                                 } placeholder: {
-                                    Color.darkSurface
+                                    ZStack {
+                                        Color.darkSurfaceVariant
+                                        Text(String(artist.name.prefix(1)).uppercased())
+                                            .font(.system(size: 32, weight: .bold))
+                                            .foregroundColor(theme.currentTheme.light)
+                                    }
                                 }
-                                .frame(width: 95, height: 95)
+                                .frame(width: 100, height: 100)
                                 .clipShape(Circle())
 
                                 Text(artist.name)
@@ -472,7 +569,7 @@ public struct HomeScreenView: View {
                                     .font(.system(size: 11))
                                     .foregroundColor(.textSecondary)
                             }
-                            .frame(width: 100)
+                            .frame(width: 105)
                         }
                     }
                 }
@@ -481,12 +578,23 @@ public struct HomeScreenView: View {
         }
     }
 
-    private func loadWaveTracks() {
-        Task {
-            if let wave = try? await CloudifyAPI.shared.getWaveTracks(), !wave.isEmpty {
-                await MainActor.run {
-                    self.waveTracks = wave
-                }
+    private func loadInitialMusic() async {
+        guard !isLoadingInitial else { return }
+        isLoadingInitial = true
+
+        do {
+            async let waveReq = CloudifyAPI.shared.getWaveTracks()
+            async let popularReq = CloudifyAPI.shared.searchTracks(query: "GONE.Fludd Miyagi phonk hits")
+
+            let (wave, popular) = try await (waveReq, popularReq)
+            await MainActor.run {
+                self.waveTracks = wave
+                self.popularForYou = popular
+                self.isLoadingInitial = false
+            }
+        } catch {
+            await MainActor.run {
+                self.isLoadingInitial = false
             }
         }
     }

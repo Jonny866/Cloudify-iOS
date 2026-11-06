@@ -162,7 +162,7 @@ public struct ArtistScreenView: View {
             }) {
                 Text(isFav ? "В избранном" : "Подписаться")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundColor(isFav ? .textPrimary : .black)
+                    .foregroundColor(isFav ? .textPrimary : (theme.currentTheme == .yellow ? .black : .white))
                     .padding(.horizontal, 18)
                     .padding(.vertical, 8)
                     .background(isFav ? Color(hex: 0x2A2A2A) : theme.currentTheme.primary)
@@ -195,7 +195,7 @@ public struct ArtistScreenView: View {
 
                     Image(systemName: "play.fill")
                         .font(.system(size: 22, weight: .bold))
-                        .foregroundColor(.black)
+                        .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
                 }
             }
         }
@@ -323,7 +323,7 @@ public struct ArtistScreenView: View {
                                                 .frame(width: 36, height: 36)
                                             Image(systemName: "play.fill")
                                                 .font(.system(size: 16, weight: .bold))
-                                                .foregroundColor(.black)
+                                                .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
                                         }
                                         .padding(8)
                                     }
@@ -381,32 +381,43 @@ public struct ArtistScreenView: View {
             do {
                 let tracks = try await CloudifyAPI.shared.searchTracks(query: artistName)
                 let pop = Array(tracks.prefix(5))
-                let albumsList: [Album] = [
-                    Album(
-                        id: "alb_\(artistName)_1",
-                        title: "FLUDDALITY",
-                        artist: artistName,
-                        artworkUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500",
-                        year: "2024",
-                        trackCount: max(2, tracks.count),
-                        tracks: tracks
-                    ),
-                    Album(
-                        id: "alb_\(artistName)_2",
-                        title: "SUPERFLUDD",
-                        artist: artistName,
-                        artworkUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500",
-                        year: "2023",
-                        trackCount: max(2, tracks.count),
-                        tracks: tracks
+                let matched = repo.getPopularArtists().first(where: { $0.name.lowercased() == artistName.lowercased() })
+                let artwork = matched?.artworkUrl ?? (tracks.first?.artworkUrl ?? CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/artworks-MSGdnR5dCyyXfnbf-asrmMg-t500x500.jpg"))
+
+                var albumsList: [Album] = []
+                if tracks.count > 3 {
+                    let chunk1 = Array(tracks.prefix(tracks.count / 2))
+                    let chunk2 = Array(tracks.suffix(tracks.count - chunk1.count))
+                    albumsList.append(
+                        Album(
+                            id: "alb_\(artistName)_1",
+                            title: chunk1.first?.title ?? "Сингл",
+                            artist: artistName,
+                            artworkUrl: chunk1.first?.artworkUrl ?? artwork,
+                            year: "2024",
+                            trackCount: chunk1.count,
+                            tracks: chunk1
+                        )
                     )
-                ]
+                    albumsList.append(
+                        Album(
+                            id: "alb_\(artistName)_2",
+                            title: chunk2.first?.title ?? "EP",
+                            artist: artistName,
+                            artworkUrl: chunk2.first?.artworkUrl ?? artwork,
+                            year: "2023",
+                            trackCount: chunk2.count,
+                            tracks: chunk2
+                        )
+                    )
+                }
 
                 let art = Artist(
                     id: "art_\(artistName)",
                     name: artistName,
-                    artworkUrl: tracks.first?.artworkUrl ?? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500",
-                    monthlyListeners: "1.4 млн"
+                    artworkUrl: artwork,
+                    monthlyListeners: matched?.monthlyListeners ?? "839.6 тыс. слушателей",
+                    isFavorite: repo.favoriteArtists.contains(artistName)
                 )
 
                 await MainActor.run {
@@ -473,7 +484,7 @@ public struct AlbumDetailSheet: View {
                             Text("Слушать всё")
                         }
                         .font(.system(size: 14, weight: .bold))
-                        .foregroundColor(.black)
+                        .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
                         .padding(.horizontal, 24)
                         .padding(.vertical, 12)
                         .background(theme.currentTheme.primary)

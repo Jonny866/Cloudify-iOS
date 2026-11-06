@@ -3,153 +3,362 @@ import SwiftUI
 public struct WelcomeAuthView: View {
     @ObservedObject var repo = MusicRepository.shared
     @ObservedObject var theme = ThemeManager.shared
-    public let onDismiss: () -> Void
+    public let onLoginSuccess: () -> Void
 
-    @State private var email: String = ""
-    @State private var displayName: String = ""
-    @State private var isLoading: Bool = false
-    @State private var errorMessage: String? = nil
+    @State private var isSignUpMode: Bool = false
+    @State private var inputName: String = ""
+    @State private var inputEmail: String = ""
+    @State private var isLoggingIn: Bool = false
+    @State private var loginStatusText: String = ""
+    @State private var showGoogleEmailAlert: Bool = false
+    @State private var googleEmailInput: String = ""
+    @State private var toastMessage: String? = nil
+
+    public init(onLoginSuccess: @escaping () -> Void) {
+        self.onLoginSuccess = onLoginSuccess
+    }
 
     public var body: some View {
-        VStack(spacing: 24) {
-            // Drag handle
-            RoundedRectangle(cornerRadius: 3)
-                .fill(Color.gray.opacity(0.4))
-                .frame(width: 36, height: 4)
-                .padding(.top, 12)
+        ZStack {
+            Color.deepBlack.edgesIgnoringSafeArea(.all)
 
-            // Header Icon & Title
-            VStack(spacing: 8) {
-                ZStack {
-                    Circle()
-                        .fill(theme.currentTheme.primary.opacity(0.15))
-                        .frame(width: 70, height: 70)
-
-                    Image(systemName: "person.badge.key.fill")
-                        .font(.system(size: 32))
-                        .foregroundColor(theme.currentTheme.primary)
-                }
-
-                Text(repo.user.isLoggedIn ? "Профиль Cloudify" : "Вход в Cloudify")
-                    .font(.system(size: 22, weight: .bold))
-                    .foregroundColor(.textPrimary)
-
-                Text(repo.user.isLoggedIn ? "Ваша медиатека синхронизирована с сервером" : "Введите email для восстановления ваших любимых треков и плейлистов")
-                    .font(.system(size: 13))
-                    .foregroundColor(.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 24)
+            // Ambient background aura
+            VStack {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                theme.currentTheme.primary.opacity(0.22),
+                                Color.clear
+                            ],
+                            center: .center,
+                            startRadius: 20,
+                            endRadius: 180
+                        )
+                    )
+                    .frame(width: 340, height: 340)
+                    .offset(y: -50)
+                Spacer()
             }
+            .edgesIgnoringSafeArea(.all)
 
-            if repo.user.isLoggedIn {
-                // Logged in card
-                VStack(spacing: 12) {
-                    HStack(spacing: 14) {
-                        Image(systemName: "person.circle.fill")
-                            .font(.system(size: 44))
-                            .foregroundColor(theme.currentTheme.primary)
+            ScrollView(.vertical, showsIndicators: false) {
+                VStack(spacing: 20) {
+                    Spacer().frame(height: 30)
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(repo.user.name)
-                                .font(.system(size: 16, weight: .bold))
-                                .foregroundColor(.textPrimary)
+                    // App Logo
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 26)
+                            .fill(theme.currentTheme == .yellow ? Color(hex: 0x1E1A0E) : Color(hex: 0x13101E))
+                            .frame(width: 92, height: 92)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 26)
+                                    .stroke(theme.currentTheme.primary.opacity(0.25), lineWidth: 1)
+                            )
 
-                            Text(repo.user.email)
-                                .font(.system(size: 13))
-                                .foregroundColor(.textSecondary)
-                        }
-
-                        Spacer()
+                        Image(uiImage: UIImage(named: theme.currentTheme.logoImageName) ?? UIImage())
+                            .resizable()
+                            .renderingMode(.original)
+                            .aspectRatio(contentMode: .fit)
+                            .frame(width: 70, height: 70)
                     }
-                    .padding(16)
-                    .background(Color.darkSurface)
-                    .clipShape(RoundedRectangle(cornerRadius: 14))
 
-                    Button(action: {
-                        repo.user = UserProfile()
-                    }) {
-                        Text("Выйти из аккаунта")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.accentPink)
-                            .padding(.top, 8)
-                    }
-                }
-                .padding(.horizontal, 20)
-            } else {
-                // Login Form
-                VStack(spacing: 14) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Email")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.textMuted)
-
-                        TextField("example@mail.com", text: $email)
-                            .keyboardType(.emailAddress)
-                            .autocapitalization(.none)
-                            .disableAutocorrection(true)
+                    // Title & Subtitle
+                    VStack(spacing: 6) {
+                        Text("Cloudify")
+                            .font(.system(size: 32, weight: .heavy))
+                            .tracking(1.2)
                             .foregroundColor(.textPrimary)
-                            .padding(14)
-                            .background(Color.darkSurface)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                        Text("Музыка без границ и блокировок")
+                            .font(.system(size: 14, weight: .medium))
+                            .tracking(0.5)
+                            .foregroundColor(theme.currentTheme.light)
                     }
 
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Имя (необязательно)")
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.textMuted)
+                    Spacer().frame(height: 10)
 
-                        TextField("Ваше имя", text: $displayName)
-                            .foregroundColor(.textPrimary)
-                            .padding(14)
-                            .background(Color.darkSurface)
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-                    }
-
-                    if let err = errorMessage {
-                        Text(err)
-                            .font(.system(size: 12))
-                            .foregroundColor(.accentPink)
-                    }
-
-                    Button(action: {
-                        let clean = email.trimmingCharacters(in: .whitespacesAndNewlines)
-                        guard !clean.isEmpty else {
-                            errorMessage = "Пожалуйста, введите Email"
-                            return
-                        }
-                        errorMessage = nil
-                        isLoading = true
-
-                        Task {
-                            await repo.restoreFromCloud(email: clean, displayName: displayName.isEmpty ? nil : displayName)
-                            await MainActor.run {
-                                isLoading = false
-                                onDismiss()
+                    // Mode Selector Tabs: Вход / Регистрация
+                    HStack(spacing: 4) {
+                        tabButton(title: "Вход", isSelected: !isSignUpMode) {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isSignUpMode = false
                             }
                         }
-                    }) {
-                        HStack(spacing: 8) {
-                            if isLoading {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .black))
-                            } else {
-                                Text("Войти и синхронизировать")
+
+                        tabButton(title: "Регистрация", isSelected: isSignUpMode) {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isSignUpMode = true
+                            }
+                        }
+                    }
+                    .padding(4)
+                    .background(Color.darkSurfaceVariant)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+
+                    // Card Container
+                    VStack(spacing: 16) {
+                        // Google Button
+                        Button(action: {
+                            showGoogleEmailAlert = true
+                        }) {
+                            HStack(spacing: 10) {
+                                Text("G")
+                                    .font(.system(size: 22, weight: .black))
+                                    .foregroundColor(Color(hex: 0x4285F4))
+
+                                Text(isSignUpMode ? "Продолжить с Google" : "Войти через Google")
                                     .font(.system(size: 15, weight: .bold))
+                                    .foregroundColor(Color(hex: 0x1F1F1F))
                             }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 52)
+                            .background(Color.white)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
                         }
-                        .foregroundColor(.black)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(theme.currentTheme.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .disabled(isLoggingIn)
+
+                        // Divider with text
+                        HStack {
+                            Rectangle()
+                                .fill(Color.darkBorder)
+                                .frame(height: 1)
+                            Text(isSignUpMode ? "  ИЛИ РУЧНАЯ РЕГИСТРАЦИЯ  " : "  ИЛИ ВХОД ПО EMAIL  ")
+                                .font(.system(size: 11, weight: .bold))
+                                .foregroundColor(.textMuted)
+                            Rectangle()
+                                .fill(Color.darkBorder)
+                                .frame(height: 1)
+                        }
+                        .padding(.vertical, 4)
+
+                        if isSignUpMode {
+                            // Name field
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Ваше имя или никнейм")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.textMuted)
+
+                                HStack(spacing: 10) {
+                                    Image(systemName: "person.fill")
+                                        .foregroundColor(theme.currentTheme.light)
+                                    TextField("Например: Александр", text: $inputName)
+                                        .foregroundColor(.textPrimary)
+                                }
+                                .padding(14)
+                                .background(Color.darkSurfaceVariant)
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(Color.darkBorder, lineWidth: 1)
+                                )
+                            }
+
+                            // Email field
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Email (для облака и плейлистов)")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.textMuted)
+
+                                HStack(spacing: 10) {
+                                    Image(systemName: "envelope.fill")
+                                        .foregroundColor(.textMuted)
+                                    TextField("myaccount@gmail.com", text: $inputEmail)
+                                        .keyboardType(.emailAddress)
+                                        .autocapitalization(.none)
+                                        .disableAutocorrection(true)
+                                        .foregroundColor(.textPrimary)
+                                }
+                                .padding(14)
+                                .background(Color.darkSurfaceVariant)
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(Color.darkBorder, lineWidth: 1)
+                                )
+                            }
+
+                            // Submit Registration Button
+                            Button(action: {
+                                performLogin(email: inputEmail, displayName: inputName.isEmpty ? "Слушатель Cloudify" : inputName)
+                            }) {
+                                Text("Создать профиль и начать")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 50)
+                                    .background(theme.currentTheme.primary)
+                                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                            }
+                            .disabled(isLoggingIn)
+                        } else {
+                            // Login Mode: Enter Email
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text("Email вашего аккаунта")
+                                    .font(.system(size: 12, weight: .semibold))
+                                    .foregroundColor(.textMuted)
+
+                                HStack(spacing: 10) {
+                                    Image(systemName: "envelope.fill")
+                                        .foregroundColor(theme.currentTheme.light)
+                                    TextField("например: jonnylermentov02@gmail.com", text: $inputEmail)
+                                        .keyboardType(.emailAddress)
+                                        .autocapitalization(.none)
+                                        .disableAutocorrection(true)
+                                        .foregroundColor(.textPrimary)
+                                }
+                                .padding(14)
+                                .background(Color.darkSurfaceVariant)
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 14)
+                                        .stroke(Color.darkBorder, lineWidth: 1)
+                                )
+                            }
+
+                            // Submit Login Button
+                            Button(action: {
+                                performLogin(email: inputEmail, displayName: nil)
+                            }) {
+                                Text("Войти и восстановить музыку")
+                                    .font(.system(size: 15, weight: .bold))
+                                    .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 50)
+                                    .background(theme.currentTheme.primary)
+                                    .clipShape(RoundedRectangle(cornerRadius: 14))
+                            }
+                            .disabled(isLoggingIn)
+                        }
+
+                        // Fast Guest Login Button
+                        Button(action: {
+                            repo.user = UserProfile(
+                                id: "guest_\(Int64(Date().timeIntervalSince1970 * 1000))",
+                                name: "Гость",
+                                email: "Войдите для сохранения плейлистов",
+                                isLoggedIn: true
+                            )
+                            repo.saveToStorage()
+                            onLoginSuccess()
+                        }) {
+                            Text("Войти как гость без сохранения")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.textMuted)
+                                .padding(.vertical, 6)
+                        }
+                        .disabled(isLoggingIn)
                     }
-                    .disabled(isLoading)
+                    .padding(20)
+                    .background(Color.darkSurface)
+                    .clipShape(RoundedRectangle(cornerRadius: 22))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 22)
+                            .stroke(Color.darkBorder, lineWidth: 1)
+                    )
+
+                    Spacer().frame(height: 40)
                 }
-                .padding(.horizontal, 20)
+                .padding(.horizontal, 24)
             }
 
-            Spacer()
+            // Loading HUD
+            if isLoggingIn {
+                ZStack {
+                    Color.black.opacity(0.65).edgesIgnoringSafeArea(.all)
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: theme.currentTheme.primary))
+                            .scaleEffect(1.4)
+                        Text(loginStatusText)
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 20)
+                    }
+                    .padding(28)
+                    .background(Color.darkSurfaceVariant)
+                    .clipShape(RoundedRectangle(cornerRadius: 18))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18)
+                            .stroke(theme.currentTheme.primary.opacity(0.3), lineWidth: 1)
+                    )
+                }
+            }
+
+            // Toast Alert
+            if let toast = toastMessage {
+                VStack {
+                    Spacer()
+                    Text(toast)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(Color.darkSurfaceVariant)
+                        .clipShape(Capsule())
+                        .overlay(Capsule().stroke(theme.currentTheme.primary, lineWidth: 1))
+                        .shadow(radius: 10)
+                        .padding(.bottom, 40)
+                }
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
         }
-        .background(Color.darkSurfaceVariant.edgesIgnoringSafeArea(.all))
+        // Google Email Fallback Dialog
+        .alert("Вход через Google", isPresented: $showGoogleEmailAlert) {
+            TextField("Google Email (напр. user@gmail.com)", text: $googleEmailInput)
+                .autocapitalization(.none)
+            Button("Войти") {
+                if !googleEmailInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    performLogin(email: googleEmailInput, displayName: nil)
+                }
+            }
+            Button("Отмена", role: .cancel) { }
+        } message: {
+            Text("Укажите ваш Google Email для входа и восстановления библиотеки треков с сервера:")
+        }
+    }
+
+    private func tabButton(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundColor(isSelected ? (theme.currentTheme == .yellow ? .black : .white) : .textSecondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 10)
+                .background(isSelected ? theme.currentTheme.primary : Color.clear)
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+        }
+    }
+
+    private func performLogin(email: String, displayName: String?) {
+        let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !cleanEmail.isEmpty else {
+            showToast("Пожалуйста, укажите Email")
+            return
+        }
+
+        isLoggingIn = true
+        loginStatusText = "Подключение к серверу и поиск треков..."
+
+        Task {
+            let result = await repo.restoreFromCloud(email: cleanEmail, displayName: displayName)
+            await MainActor.run {
+                self.isLoggingIn = false
+                if result.count > 0 {
+                    showToast("Облако: Восстановлено \(result.count) любимых треков!")
+                } else {
+                    showToast("Вход выполнен: \(repo.user.name)!")
+                }
+                onLoginSuccess()
+            }
+        }
+    }
+
+    private func showToast(_ msg: String) {
+        withAnimation { toastMessage = msg }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            withAnimation { toastMessage = nil }
+        }
     }
 }

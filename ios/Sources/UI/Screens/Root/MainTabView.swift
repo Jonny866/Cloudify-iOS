@@ -3,10 +3,12 @@ import SwiftUI
 public struct MainTabView: View {
     @State private var selectedTab: MainTab = .home
     @State private var showFullPlayer: Bool = false
-    @State private var showAuthSheet: Bool = false
+    @State private var showProfileScreen: Bool = false
     @State private var navArtistName: String? = nil
 
     @ObservedObject var player = AudioPlayerService.shared
+
+    public init() {}
 
     public var body: some View {
         ZStack(alignment: .bottom) {
@@ -18,7 +20,7 @@ public struct MainTabView: View {
                 case .home:
                     HomeScreenView(
                         onArtistClick: { name in navArtistName = name },
-                        onProfileClick: { showAuthSheet = true }
+                        onProfileClick: { showProfileScreen = true }
                     )
                 case .search:
                     SearchScreenView(
@@ -70,12 +72,11 @@ public struct MainTabView: View {
                 }
             )
         }
-        // Auth / Profile Sheet
-        .sheet(isPresented: $showAuthSheet) {
-            WelcomeAuthView(
-                onDismiss: { showAuthSheet = false }
+        // Profile & Settings Screen
+        .fullScreenCover(isPresented: $showProfileScreen) {
+            ProfileAndSettingsView(
+                onBack: { showProfileScreen = false }
             )
-            .presentationDetents([.medium, .large])
         }
     }
 }

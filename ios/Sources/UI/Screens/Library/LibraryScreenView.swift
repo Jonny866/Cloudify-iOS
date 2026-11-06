@@ -62,7 +62,7 @@ public struct LibraryScreenView: View {
                         }) {
                             Text(section.rawValue)
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(isSelected ? .black : .textPrimary)
+                                .foregroundColor(isSelected ? (theme.currentTheme == .yellow ? .black : .white) : .textPrimary)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 8)
                                 .background(isSelected ? theme.currentTheme.primary : Color(hex: 0x2A2A2A))
@@ -152,7 +152,7 @@ public struct LibraryScreenView: View {
 
                         Image(systemName: "play.fill")
                             .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(.black)
+                            .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
                     }
                 }
             }

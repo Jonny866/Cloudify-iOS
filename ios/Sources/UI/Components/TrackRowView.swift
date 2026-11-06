@@ -5,11 +5,32 @@ public struct TrackRowView: View {
     public let isCurrent: Bool
     public let isPlaying: Bool
     public let isFavorite: Bool
+    public let isDownloaded: Bool
     public let onPlay: () -> Void
     public let onFavoriteToggle: () -> Void
     public let onMoreClick: () -> Void
 
     @ObservedObject var theme = ThemeManager.shared
+
+    public init(
+        track: Track,
+        isCurrent: Bool = false,
+        isPlaying: Bool = false,
+        isFavorite: Bool = false,
+        isDownloaded: Bool = false,
+        onPlay: @escaping () -> Void,
+        onFavoriteToggle: @escaping () -> Void,
+        onMoreClick: @escaping () -> Void
+    ) {
+        self.track = track
+        self.isCurrent = isCurrent
+        self.isPlaying = isPlaying
+        self.isFavorite = isFavorite
+        self.isDownloaded = isDownloaded
+        self.onPlay = onPlay
+        self.onFavoriteToggle = onFavoriteToggle
+        self.onMoreClick = onMoreClick
+    }
 
     public var body: some View {
         HStack(spacing: 12) {
@@ -39,9 +60,9 @@ public struct TrackRowView: View {
                     .lineLimit(1)
 
                 HStack(spacing: 4) {
-                    if track.isDownloaded {
+                    if isDownloaded || track.isDownloaded {
                         Image(systemName: "arrow.down.circle.fill")
-                            .font(.system(size: 10))
+                            .font(.system(size: 11))
                             .foregroundColor(theme.currentTheme.primary)
                     }
                     Text(track.artist)

@@ -6,6 +6,16 @@ public struct TrackDto: Codable {
     public let uploader: String
     public let thumbnail: String?
     public let url: String
+    public let duration_ms: Int64?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case uploader
+        case thumbnail
+        case url
+        case duration_ms
+    }
 }
 
 public struct UserSyncDto: Codable {
@@ -13,6 +23,13 @@ public struct UserSyncDto: Codable {
     public var name: String = ""
     public var email: String = ""
     public var avatarUrl: String = ""
+
+    public init(id: String = "", name: String = "", email: String = "", avatarUrl: String = "") {
+        self.id = id
+        self.name = name
+        self.email = email
+        self.avatarUrl = avatarUrl
+    }
 }
 
 public struct FavoriteSyncDto: Codable {
@@ -25,6 +42,28 @@ public struct FavoriteSyncDto: Codable {
     public var genre: String = "SoundCloud"
     public var lyrics: String = ""
     public var addedAt: Int64 = 0
+
+    public init(
+        id: String,
+        title: String,
+        artist: String,
+        artworkUrl: String = "",
+        streamUrl: String = "",
+        durationMs: Int64 = 180000,
+        genre: String = "SoundCloud",
+        lyrics: String = "",
+        addedAt: Int64 = 0
+    ) {
+        self.id = id
+        self.title = title
+        self.artist = artist
+        self.artworkUrl = artworkUrl
+        self.streamUrl = streamUrl
+        self.durationMs = durationMs
+        self.genre = genre
+        self.lyrics = lyrics
+        self.addedAt = addedAt
+    }
 }
 
 public struct PlaylistSyncDto: Codable {
@@ -33,6 +72,14 @@ public struct PlaylistSyncDto: Codable {
     public var artworkUrl: String = ""
     public var createdAt: Int64 = 0
     public var trackIds: [String] = []
+
+    public init(id: String, name: String, artworkUrl: String = "", createdAt: Int64 = 0, trackIds: [String] = []) {
+        self.id = id
+        self.name = name
+        self.artworkUrl = artworkUrl
+        self.createdAt = createdAt
+        self.trackIds = trackIds
+    }
 }
 
 public struct ArtistSyncDto: Codable {
@@ -41,6 +88,14 @@ public struct ArtistSyncDto: Codable {
     public var genre: String = "Исполнитель"
     public var monthlyListeners: String = ""
     public var addedAt: Int64 = 0
+
+    public init(name: String, artworkUrl: String = "", genre: String = "Исполнитель", monthlyListeners: String = "", addedAt: Int64 = 0) {
+        self.name = name
+        self.artworkUrl = artworkUrl
+        self.genre = genre
+        self.monthlyListeners = monthlyListeners
+        self.addedAt = addedAt
+    }
 }
 
 public struct SyncPayloadDto: Codable {
@@ -48,6 +103,13 @@ public struct SyncPayloadDto: Codable {
     public var favorites: [FavoriteSyncDto] = []
     public var playlists: [PlaylistSyncDto] = []
     public var favoriteArtists: [ArtistSyncDto] = []
+
+    public init(user: UserSyncDto, favorites: [FavoriteSyncDto] = [], playlists: [PlaylistSyncDto] = [], favoriteArtists: [ArtistSyncDto] = []) {
+        self.user = user
+        self.favorites = favorites
+        self.playlists = playlists
+        self.favoriteArtists = favoriteArtists
+    }
 }
 
 public struct SyncResponseDto: Codable {
@@ -74,10 +136,14 @@ public final class CloudifyAPI {
         self.session = URLSession(configuration: config)
     }
 
+    private static func rfc3986Encode(_ string: String) -> String {
+        var allowed = CharacterSet.alphanumerics
+        allowed.insert(charactersIn: "-_.~")
+        return string.addingPercentEncoding(withAllowedCharacters: allowed) ?? string
+    }
+
     public static func getStreamUrl(webpageUrl: String, quality: String = "high") -> URL? {
-        guard let encoded = webpageUrl.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
-            return nil
-        }
+        let encoded = rfc3986Encode(webpageUrl)
         let qParam = (quality.lowercased().contains("high") || quality.contains("320")) ? "high" : "standard"
         return URL(string: "\(baseURL)/api/stream?url=\(encoded)&quality=\(qParam)")
     }
@@ -86,15 +152,13 @@ public final class CloudifyAPI {
         guard let raw = originalThumbnailUrl, !raw.isEmpty else {
             return "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500"
         }
-        guard let encoded = raw.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
-            return raw
-        }
+        let encoded = rfc3986Encode(raw)
         return "\(baseURL)/api/cover?url=\(encoded)"
     }
 
     public func searchTracks(query: String) async throws -> [Track] {
-        guard let encodedQuery = query.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "\(Self.baseURL)/api/search?q=\(encodedQuery)") else {
+        let encodedQuery = rfc3986Encode(query)
+        guard let url = URL(string: "\(Self.baseURL)/api/search?q=\(encodedQuery)") else {
             return []
         }
 
@@ -111,13 +175,14 @@ public final class CloudifyAPI {
         return dtos.map { dto in
             let stream = Self.getStreamUrl(webpageUrl: dto.url)?.absoluteString ?? dto.url
             let cover = Self.getCoverUrl(originalThumbnailUrl: dto.thumbnail)
+            let duration = dto.duration_ms ?? 180000
             return Track(
                 id: dto.id,
                 title: dto.title,
                 artist: dto.uploader,
                 artworkUrl: cover,
                 streamUrl: stream,
-                durationMs: 180000,
+                durationMs: duration,
                 genre: "SoundCloud"
             )
         }
@@ -139,13 +204,14 @@ public final class CloudifyAPI {
         return dtos.map { dto in
             let stream = Self.getStreamUrl(webpageUrl: dto.url)?.absoluteString ?? dto.url
             let cover = Self.getCoverUrl(originalThumbnailUrl: dto.thumbnail)
+            let duration = dto.duration_ms ?? 190000
             return Track(
                 id: dto.id,
                 title: dto.title,
                 artist: dto.uploader,
                 artworkUrl: cover,
                 streamUrl: stream,
-                durationMs: 180000,
+                durationMs: duration,
                 genre: "Wave"
             )
         }

@@ -238,7 +238,7 @@ public struct FullPlayerView: View {
 
                     Image(systemName: player.isPlaying ? "pause.fill" : "play.fill")
                         .font(.system(size: 28, weight: .bold))
-                        .foregroundColor(.black)
+                        .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
                 }
             }
             .frame(maxWidth: .infinity)

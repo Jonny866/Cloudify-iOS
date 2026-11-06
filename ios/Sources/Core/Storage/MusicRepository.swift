@@ -24,7 +24,7 @@ public final class MusicRepository: ObservableObject {
         }
     }
 
-    // Persistence
+    // Persistence URLs
     private var favoritesFileURL: URL { documentsURL.appendingPathComponent("favorites.json") }
     private var playlistsFileURL: URL { documentsURL.appendingPathComponent("playlists.json") }
     private var artistsFileURL: URL { documentsURL.appendingPathComponent("artists.json") }
@@ -61,7 +61,7 @@ public final class MusicRepository: ObservableObject {
         }
     }
 
-    private func saveToStorage() {
+    public func saveToStorage() {
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
 
@@ -108,12 +108,57 @@ public final class MusicRepository: ObservableObject {
         }
     }
 
+    public func getPopularArtists() -> [Artist] {
+        return [
+            Artist(
+                id: "a_dabbackwood",
+                name: "dabbackwood",
+                artworkUrl: CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/avatars-zmVG9KSLGIaTyCxA-schJmA-t500x500.jpg"),
+                genre: "Hip-Hop / Rap",
+                monthlyListeners: "215 тыс. слушателей",
+                isFavorite: favoriteArtists.contains("dabbackwood")
+            ),
+            Artist(
+                id: "a_gone",
+                name: "GONE.Fludd",
+                artworkUrl: CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/avatars-qcDcKZDyCbj8ykiQ-FEOkHA-t500x500.jpg"),
+                genre: "Hip-Hop / Rap",
+                monthlyListeners: "839.6 тыс. слушателей",
+                isFavorite: favoriteArtists.contains("GONE.Fludd")
+            ),
+            Artist(
+                id: "a_miyagi",
+                name: "Miyagi & Эндшпиль",
+                artworkUrl: CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/avatars-zK5Rj5tpjLZYizRW-a6bEXA-t500x500.jpg"),
+                genre: "Hip-Hop",
+                monthlyListeners: "3.8M слушателей",
+                isFavorite: favoriteArtists.contains("Miyagi & Эндшпиль")
+            ),
+            Artist(
+                id: "a_kordhell",
+                name: "KORDHELL",
+                artworkUrl: CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/avatars-IwkAewk5iACtjj7t-mjkT9g-t500x500.jpg"),
+                genre: "Phonk",
+                monthlyListeners: "4.2M слушателей",
+                isFavorite: favoriteArtists.contains("KORDHELL")
+            ),
+            Artist(
+                id: "a_dvrst",
+                name: "DVRST",
+                artworkUrl: CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/avatars-91G3KMdmclZj1XN2-blvgeQ-t500x500.jpg"),
+                genre: "Drift Phonk",
+                monthlyListeners: "2.9M слушателей",
+                isFavorite: favoriteArtists.contains("DVRST")
+            )
+        ]
+    }
+
     // Playlists
     public func createPlaylist(name: String, artworkUrl: String = "") {
         let newPl = Playlist(
             id: UUID().uuidString,
             name: name,
-            artworkUrl: artworkUrl.isEmpty ? "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500" : artworkUrl,
+            artworkUrl: artworkUrl.isEmpty ? CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/artworks-MSGdnR5dCyyXfnbf-asrmMg-t500x500.jpg") : artworkUrl,
             trackCount: 0,
             isCustom: true
         )
@@ -134,7 +179,7 @@ public final class MusicRepository: ObservableObject {
         }
     }
 
-    // History
+    // History & Listening Stats
     public func addRecentTrack(_ track: Track) {
         recentTracks.removeAll { $0.id == track.id }
         recentTracks.insert(track, at: 0)
@@ -142,6 +187,17 @@ public final class MusicRepository: ObservableObject {
             recentTracks = Array(recentTracks.prefix(30))
         }
         saveToStorage()
+    }
+
+    public func addListenedSeconds(_ seconds: Int) {
+        let current = UserDefaults.standard.integer(forKey: "cloudify_listened_sec")
+        UserDefaults.standard.set(current + seconds, forKey: "cloudify_listened_sec")
+    }
+
+    public func getTotalListenedHours() -> Double {
+        let seconds = UserDefaults.standard.integer(forKey: "cloudify_listened_sec")
+        let hours = Double(seconds) / 3600.0
+        return max(1.2, (hours * 10).rounded() / 10)
     }
 
     // Downloads
@@ -175,6 +231,28 @@ public final class MusicRepository: ObservableObject {
                 print("Download failed: \(error)")
             }
         }.resume()
+    }
+
+    public func getCacheSizeMb() -> Double {
+        var size: Int64 = 0
+        let urls = [documentsURL]
+        for dir in urls {
+            if let enumerator = FileManager.default.enumerator(at: dir, includingPropertiesForKeys: [.fileSizeKey]) {
+                for case let fileURL as URL in enumerator {
+                    if let res = try? fileURL.resourceValues(forKeys: [.fileSizeKey]), let fSize = res.fileSize {
+                        size += Int64(fSize)
+                    }
+                }
+            }
+        }
+        return Double(size) / (1024.0 * 1024.0)
+    }
+
+    public func clearCache() {
+        let destDir = documentsURL.appendingPathComponent("Downloads", isDirectory: true)
+        try? FileManager.default.removeItem(at: destDir)
+        downloadedTracks.removeAll()
+        downloadedIds.removeAll()
     }
 
     // Cloud Sync
@@ -219,19 +297,33 @@ public final class MusicRepository: ObservableObject {
         await MainActor.run { isSyncing = false }
     }
 
-    public func restoreFromCloud(email: String, displayName: String? = nil) async {
+    @discardableResult
+    public func restoreFromCloud(email: String, displayName: String? = nil, photoUrl: String? = nil) async -> (success: Bool, count: Int) {
         let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let userId = "user_\(abs(cleanEmail.hashValue))"
+        let userId = "google_\(abs(cleanEmail.hashValue))"
         let name = displayName ?? (cleanEmail.components(separatedBy: "@").first?.capitalized ?? "Пользователь Cloudify")
+        let avatar = photoUrl ?? ""
 
         await MainActor.run {
-            self.user = UserProfile(id: userId, name: name, email: cleanEmail, isLoggedIn: true)
-            self.saveToStorage()
             self.isSyncing = true
         }
 
-        if let res = try? await CloudifyAPI.shared.getUserData(userId: userId, email: cleanEmail) {
+        do {
+            let res = try await CloudifyAPI.shared.getUserData(userId: userId, email: cleanEmail)
+            var restoredFavCount = 0
+
             await MainActor.run {
+                let finalName = res.user?.name.isEmpty == false ? (res.user?.name ?? name) : name
+                let finalAvatar = res.user?.avatarUrl.isEmpty == false ? (res.user?.avatarUrl ?? avatar) : avatar
+
+                self.user = UserProfile(
+                    id: userId,
+                    name: finalName,
+                    email: cleanEmail,
+                    avatarUrl: finalAvatar,
+                    isLoggedIn: true
+                )
+
                 if !res.favorites.isEmpty {
                     self.favorites = res.favorites.map {
                         Track(
@@ -246,6 +338,7 @@ public final class MusicRepository: ObservableObject {
                         )
                     }
                     self.favoriteIds = Set(self.favorites.map { $0.id })
+                    restoredFavCount = self.favorites.count
                 }
 
                 if !res.playlists.isEmpty {
@@ -268,51 +361,85 @@ public final class MusicRepository: ObservableObject {
                 self.saveToStorage()
                 self.isSyncing = false
             }
-        } else {
-            await MainActor.run { self.isSyncing = false }
+
+            // If new account with no cloud library, sync initial profile up
+            if res.favorites.isEmpty && res.playlists.isEmpty {
+                await syncToCloud()
+            }
+
+            return (success: true, count: restoredFavCount)
+        } catch {
+            await MainActor.run {
+                self.user = UserProfile(id: userId, name: name, email: cleanEmail, avatarUrl: avatar, isLoggedIn: true)
+                self.saveToStorage()
+                self.isSyncing = false
+            }
+            return (success: false, count: 0)
         }
     }
 
-    // Default Seed Data (gone fludd, etc.)
+    public func logout() {
+        self.user = UserProfile()
+        saveToStorage()
+    }
+
+    // Default Seed Data from real Cloudify backend
     private func seedDefaultTracks() {
+        let streamGoneFludd = CloudifyAPI.getStreamUrl(webpageUrl: "https://soundcloud.com/gonefluddmus/kod-gias")?.absoluteString ?? "http://de-bots6.h1cloud.net:25066/api/stream?url=https%3A%2F%2Fsoundcloud.com%2Fgonefluddmus%2Fkod-gias"
+        let coverGoneFludd = CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/artworks-MSGdnR5dCyyXfnbf-asrmMg-t500x500.jpg")
+
+        let streamMiyagi = CloudifyAPI.getStreamUrl(webpageUrl: "https://soundcloud.com/miyagi_black/minor")?.absoluteString ?? "http://de-bots6.h1cloud.net:25066/api/stream?url=https%3A%2F%2Fsoundcloud.com%2Fmiyagi_black%2Fminor"
+        let coverMiyagi = CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/artworks-HY4P9FmLUzbNs8YA-ommqfw-t500x500.jpg")
+
+        let streamKordhell = CloudifyAPI.getStreamUrl(webpageUrl: "https://soundcloud.com/kordhell/murder-in-my-mind")?.absoluteString ?? "http://de-bots6.h1cloud.net:25066/api/stream?url=https%3A%2F%2Fsoundcloud.com%2Fkordhell%2Fmurder-in-my-mind"
+        let coverKordhell = CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/artworks-IwkAewk5iACtjj7t-mjkT9g-t500x500.jpg")
+
+        let streamDvrst = CloudifyAPI.getStreamUrl(webpageUrl: "https://soundcloud.com/dvrst/close-eyes")?.absoluteString ?? "http://de-bots6.h1cloud.net:25066/api/stream?url=https%3A%2F%2Fsoundcloud.com%2Fdvrst%2Fclose-eyes"
+        let coverDvrst = CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/artworks-91G3KMdmclZj1XN2-blvgeQ-t500x500.jpg")
+
         let seeds: [Track] = [
             Track(
-                id: "demo_fludd_1",
+                id: "2428883184",
                 title: "КОД ГИАС",
                 artist: "GONE.Fludd",
-                artworkUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500",
-                streamUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
+                artworkUrl: coverGoneFludd,
+                streamUrl: streamGoneFludd,
+                durationMs: 121655,
                 genre: "Hip-Hop",
                 isFavorite: true
             ),
             Track(
-                id: "demo_fludd_2",
-                title: "Свежесть",
-                artist: "GONE.Fludd",
-                artworkUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500",
-                streamUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-                genre: "Hip-Hop",
-                isFavorite: true
-            ),
-            Track(
-                id: "demo_miyagi_1",
-                title: "Utopia",
+                id: "859281946",
+                title: "Minor",
                 artist: "Miyagi & Эндшпиль",
-                artworkUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500",
-                streamUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-                genre: "Reggae/Hip-Hop",
+                artworkUrl: coverMiyagi,
+                streamUrl: streamMiyagi,
+                durationMs: 175846,
+                genre: "Hip-Hop",
                 isFavorite: true
             ),
             Track(
-                id: "demo_kordhell_1",
+                id: "sc_kordhell_mim",
                 title: "Murder In My Mind",
                 artist: "KORDHELL",
-                artworkUrl: "https://images.unsplash.com/photo-1508700115892-45ecd05ae2ad?w=500",
-                streamUrl: "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
+                artworkUrl: coverKordhell,
+                streamUrl: streamKordhell,
+                durationMs: 145000,
                 genre: "Phonk",
+                isFavorite: true
+            ),
+            Track(
+                id: "sc_dvrst_ce",
+                title: "Close Eyes",
+                artist: "DVRST",
+                artworkUrl: coverDvrst,
+                streamUrl: streamDvrst,
+                durationMs: 132000,
+                genre: "Drift Phonk",
                 isFavorite: true
             )
         ]
+
         self.favorites = seeds
         self.favoriteIds = Set(seeds.map { $0.id })
         self.favoriteArtists = ["GONE.Fludd", "Miyagi & Эндшпиль", "KORDHELL", "DVRST", "dabbackwood"]
@@ -320,7 +447,7 @@ public final class MusicRepository: ObservableObject {
             Playlist(
                 id: "pl_favorites",
                 name: "Любимые треки",
-                artworkUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500",
+                artworkUrl: coverGoneFludd,
                 trackCount: seeds.count,
                 isCustom: false,
                 trackIds: seeds.map { $0.id }
