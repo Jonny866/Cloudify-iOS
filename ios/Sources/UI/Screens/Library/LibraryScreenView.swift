@@ -1,10 +1,22 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
-public enum LibrarySection: String, CaseIterable {
-    case favorites = "Любимые"
-    case playlists = "Плейлисты"
-    case artists = "Артисты"
-    case downloads = "Скачанные"
+public enum LibraryTab: Int, CaseIterable {
+    case favorites = 0
+    case playlists = 1
+
+    public var title: String {
+        switch self {
+        case .favorites: return "Любимые"
+        case .playlists: return "Плейлисты"
+        }
+    }
+}
+
+public enum SortOrder: String, CaseIterable {
+    case dateAdded = "По дате добавления"
+    case title = "По названию"
+    case artist = "По исполнителю"
 }
 
 public struct LibraryScreenView: View {
@@ -14,14 +26,37 @@ public struct LibraryScreenView: View {
 
     public let onArtistClick: (String) -> Void
 
-    @State private var selectedSection: LibrarySection = .favorites
+    @State private var selectedTab: LibraryTab = .favorites
+    @State private var sortOrder: SortOrder = .dateAdded
     @State private var showCreatePlaylistSheet: Bool = false
     @State private var newPlaylistName: String = ""
     @State private var actionTrack: Track? = nil
+    @State private var showFileImporter: Bool = false
+    @State private var isImporting: Bool = false
+    @State private var importResultText: String? = nil
+
+    public init(onArtistClick: @escaping (String) -> Void) {
+        self.onArtistClick = onArtistClick
+    }
+
+    private var sortedFavorites: [Track] {
+        switch sortOrder {
+        case .dateAdded:
+            return repo.favorites
+        case .title:
+            return repo.favorites.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        case .artist:
+            return repo.favorites.sorted { $0.artist.localizedCaseInsensitiveCompare($1.artist) == .orderedAscending }
+        }
+    }
+
+    private var nonDownloadedFavorites: [Track] {
+        repo.favorites.filter { !repo.downloadedIds.contains($0.id) }
+    }
 
     public var body: some View {
         VStack(spacing: 0) {
-            // Header
+            // Header (Matching Android 7.9 LibraryScreen.kt)
             HStack {
                 Text("Моя медиатека")
                     .font(.system(size: 24, weight: .bold))
@@ -29,13 +64,13 @@ public struct LibraryScreenView: View {
 
                 Spacer()
 
-                if repo.isSyncing {
+                if repo.isSyncing || isImporting {
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: theme.currentTheme.primary))
                         .scaleEffect(0.8)
                 }
 
-                if selectedSection == .playlists {
+                if selectedTab == .playlists {
                     Button(action: {
                         showCreatePlaylistSheet = true
                     }) {
@@ -45,47 +80,71 @@ public struct LibraryScreenView: View {
                             .frame(width: 36, height: 36)
                     }
                 }
+
+                Menu {
+                    Button(action: { sortOrder = .dateAdded }) {
+                        Label("По дате добавления", systemImage: sortOrder == .dateAdded ? "checkmark" : "")
+                    }
+                    Button(action: { sortOrder = .title }) {
+                        Label("По названию", systemImage: sortOrder == .title ? "checkmark" : "")
+                    }
+                    Button(action: { sortOrder = .artist }) {
+                        Label("По исполнителю", systemImage: sortOrder == .artist ? "checkmark" : "")
+                    }
+                    Divider()
+                    Button(action: { showFileImporter = true }) {
+                        Label("Импорт треков (.txt)", systemImage: "doc.badge.plus")
+                    }
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundColor(.textSecondary)
+                        .frame(width: 36, height: 36)
+                }
             }
             .padding(.horizontal, 16)
             .padding(.top, 14)
             .padding(.bottom, 10)
 
-            // Section Filter Pills
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(LibrarySection.allCases, id: \.self) { section in
-                        let isSelected = selectedSection == section
-                        Button(action: {
-                            withAnimation(.easeInOut(duration: 0.15)) {
-                                selectedSection = section
-                            }
-                        }) {
-                            Text(section.rawValue)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundColor(isSelected ? (theme.currentTheme == .yellow ? .black : .white) : .textPrimary)
-                                .padding(.horizontal, 16)
-                                .padding(.vertical, 8)
-                                .background(isSelected ? theme.currentTheme.primary : Color(hex: 0x2A2A2A))
-                                .clipShape(Capsule())
-                        }
-                    }
-                }
-                .padding(.horizontal, 16)
+            // Primary Tabs: "Любимые" and "Плейлисты" (Matching Android 7.9 exactly)
+            HStack(spacing: 0) {
+                tabButton(tab: .favorites, label: "Любимые (\(repo.favorites.count))")
+                tabButton(tab: .playlists, label: "Плейлисты")
             }
-            .padding(.bottom, 12)
+            .background(Color.deepBlack)
 
-            // Content per section
+            Divider()
+                .background(Color.darkBorder)
+
+            // Tab Content
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 0) {
-                    switch selectedSection {
+                    if let resultMsg = importResultText {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.accentGreen)
+                            Text(resultMsg)
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundColor(.textPrimary)
+                            Spacer()
+                            Button(action: { importResultText = nil }) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.textMuted)
+                            }
+                        }
+                        .padding(12)
+                        .background(Color.darkSurfaceVariant)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .padding(.horizontal, 16)
+                        .padding(.top, 10)
+                    }
+
+                    switch selectedTab {
                     case .favorites:
-                        favoritesContent
+                        favoritesTabContent
                     case .playlists:
-                        playlistsContent
-                    case .artists:
-                        artistsContent
-                    case .downloads:
-                        downloadsContent
+                        playlistsTabContent
                     }
 
                     Spacer(minLength: 120)
@@ -96,12 +155,36 @@ public struct LibraryScreenView: View {
         .alert("Новый плейлист", isPresented: $showCreatePlaylistSheet) {
             TextField("Название плейлиста", text: $newPlaylistName)
             Button("Создать") {
-                if !newPlaylistName.trimmingCharacters(in: .whitespaces).isEmpty {
-                    repo.createPlaylist(name: newPlaylistName.trimmingCharacters(in: .whitespaces))
+                let trimmed = newPlaylistName.trimmingCharacters(in: .whitespaces)
+                if !trimmed.isEmpty {
+                    repo.createPlaylist(name: trimmed)
                     newPlaylistName = ""
                 }
             }
-            Button("Отмена", role: .cancel) { newPlaylistName = "" }
+            Button("Отмена", role: .cancel) {}
+        }
+        .fileImporter(
+            isPresented: $showFileImporter,
+            allowedContentTypes: [.plainText, .text],
+            allowsMultipleSelection: false
+        ) { result in
+            switch result {
+            case .success(let urls):
+                guard let url = urls.first else { return }
+                if url.startAccessingSecurityScopedResource() {
+                    defer { url.stopAccessingSecurityScopedResource() }
+                    if let text = try? String(contentsOf: url, encoding: .utf8) {
+                        Task {
+                            isImporting = true
+                            let res = await repo.importTracksFromText(text)
+                            isImporting = false
+                            importResultText = "Импортировано \(res.imported) из \(res.total) треков"
+                        }
+                    }
+                }
+            case .failure(let err):
+                print("File import error: \(err)")
+            }
         }
         .sheet(item: $actionTrack) { track in
             TrackActionSheet(
@@ -117,128 +200,216 @@ public struct LibraryScreenView: View {
         }
     }
 
-    // Favorites Content
-    private var favoritesContent: some View {
-        VStack(spacing: 0) {
-            // Action Bar (Count, Shuffle, Play All)
-            HStack {
-                Text("\(repo.favorites.count) треков")
-                    .font(.system(size: 13))
-                    .foregroundColor(.textMuted)
+    private func tabButton(tab: LibraryTab, label: String) -> some View {
+        let isSelected = selectedTab == tab
+
+        return Button(action: {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                selectedTab = tab
+            }
+        }) {
+            VStack(spacing: 6) {
+                Text(label)
+                    .font(.system(size: 14, weight: isSelected ? .bold : .medium))
+                    .foregroundColor(isSelected ? theme.currentTheme.light : .textMuted)
+
+                Rectangle()
+                    .fill(isSelected ? theme.currentTheme.primary : Color.clear)
+                    .frame(height: 2)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 10)
+        }
+    }
+
+    // Favorites Tab with Download All, Import .txt, Shuffle
+    private var favoritesTabContent: some View {
+        VStack(spacing: 8) {
+            // Action Buttons Row (Matching Android 7.9)
+            HStack(spacing: 8) {
+                if !nonDownloadedFavorites.isEmpty {
+                    Button(action: {
+                        repo.downloadAllTracks(nonDownloadedFavorites)
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "arrow.down.circle.fill")
+                                .font(.system(size: 14))
+                            Text(nonDownloadedFavorites.count == repo.favorites.count ? "Скачать все" : "Скачать (\(nonDownloadedFavorites.count))")
+                                .font(.system(size: 12, weight: .bold))
+                                .lineLimit(1)
+                        }
+                        .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(theme.currentTheme.primary)
+                        .clipShape(Capsule())
+                    }
+                }
+
+                Button(action: {
+                    showFileImporter = true
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 13))
+                        Text("Импорт .txt")
+                            .font(.system(size: 12, weight: .semibold))
+                            .lineLimit(1)
+                    }
+                    .foregroundColor(theme.currentTheme.light)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.darkSurfaceVariant)
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule().stroke(theme.currentTheme.light.opacity(0.3), lineWidth: 1)
+                    )
+                }
+
+                if !repo.favorites.isEmpty {
+                    Button(action: {
+                        let shuffled = repo.favorites.shuffled()
+                        if let first = shuffled.first {
+                            player.playTrack(first, in: shuffled)
+                        }
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "shuffle")
+                                .font(.system(size: 14))
+                            Text("Перемешать")
+                                .font(.system(size: 12, weight: .semibold))
+                                .lineLimit(1)
+                        }
+                        .foregroundColor(.textPrimary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.darkSurfaceVariant)
+                        .clipShape(Capsule())
+                    }
+                }
 
                 Spacer()
-
-                Button(action: {
-                    if !repo.favorites.isEmpty {
-                        let shuffled = repo.favorites.shuffled()
-                        player.playTrack(shuffled[0], in: shuffled)
-                    }
-                }) {
-                    Image(systemName: "shuffle")
-                        .font(.system(size: 20))
-                        .foregroundColor(theme.currentTheme.primary)
-                        .frame(width: 38, height: 38)
-                }
-
-                Button(action: {
-                    if let first = repo.favorites.first {
-                        player.playTrack(first, in: repo.favorites)
-                    }
-                }) {
-                    ZStack {
-                        Circle()
-                            .fill(theme.currentTheme.primary)
-                            .frame(width: 44, height: 44)
-
-                        Image(systemName: "play.fill")
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
-                    }
-                }
             }
             .padding(.horizontal, 16)
-            .padding(.vertical, 8)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
 
-            // Tracks
-            ForEach(repo.favorites) { track in
-                TrackRowView(
-                    track: track,
-                    isCurrent: player.currentTrack?.id == track.id,
-                    isPlaying: player.isPlaying,
-                    isFavorite: true,
-                    onPlay: {
-                        player.playTrack(track, in: repo.favorites)
-                        repo.addRecentTrack(track)
-                    },
-                    onFavoriteToggle: {
-                        repo.toggleFavorite(track)
-                    },
-                    onMoreClick: {
-                        actionTrack = track
-                    }
-                )
-            }
-        }
-    }
+            // Content or Empty State
+            if repo.favorites.isEmpty {
+                VStack(spacing: 12) {
+                    Spacer(minLength: 40)
+                    Image(systemName: "heart.slash")
+                        .font(.system(size: 48))
+                        .foregroundColor(theme.currentTheme.light)
 
-    // Playlists Content
-    private var playlistsContent: some View {
-        VStack(spacing: 12) {
-            ForEach(repo.playlists) { pl in
-                HStack(spacing: 14) {
-                    AsyncImage(url: URL(string: pl.artworkUrl)) { img in
-                        img.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Color.darkSurfaceVariant
-                    }
-                    .frame(width: 56, height: 56)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    Text("Нет любимых треков")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.textPrimary)
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(pl.name)
-                            .font(.system(size: 16, weight: .bold))
-                            .foregroundColor(.textPrimary)
+                    Text("Нажимайте на сердечко у любых песен или нажмите кнопку «Импорт .txt» для загрузки треков из Яндекс Музыки, ВК или Spotify")
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(4)
+                        .padding(.horizontal, 32)
 
-                        Text("Плейлист • \(pl.trackCount) треков")
-                            .font(.system(size: 12))
-                            .foregroundColor(.textSecondary)
-                    }
-
-                    Spacer()
-
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 14))
-                        .foregroundColor(.textMuted)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 6)
-            }
-        }
-    }
-
-    // Artists Content
-    private var artistsContent: some View {
-        VStack(spacing: 12) {
-            ForEach(Array(repo.favoriteArtists), id: \.self) { artistName in
-                Button(action: {
-                    onArtistClick(artistName)
-                }) {
-                    HStack(spacing: 14) {
-                        ZStack {
-                            Circle()
-                                .fill(Color.darkSurfaceVariant)
-                                .frame(width: 52, height: 52)
-                            Text(String(artistName.prefix(1)).uppercased())
-                                .font(.system(size: 20, weight: .bold))
-                                .foregroundColor(theme.currentTheme.primary)
+                    Button(action: { showFileImporter = true }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "square.and.arrow.down")
+                            Text("Импортировать треки из .txt")
+                                .fontWeight(.bold)
                         }
+                        .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(theme.currentTheme.primary)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                    .padding(.top, 10)
+
+                    Spacer(minLength: 80)
+                }
+            } else {
+                ForEach(sortedFavorites) { track in
+                    TrackRowView(
+                        track: track,
+                        isCurrent: player.currentTrack?.id == track.id,
+                        isPlaying: player.isPlaying,
+                        isFavorite: true,
+                        isDownloaded: repo.downloadedIds.contains(track.id),
+                        onPlay: {
+                            player.playTrack(track, in: sortedFavorites)
+                        },
+                        onFavoriteToggle: {
+                            repo.toggleFavorite(track)
+                        },
+                        onMore: {
+                            actionTrack = track
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    // Playlists Tab
+    private var playlistsTabContent: some View {
+        VStack(spacing: 12) {
+            if repo.playlists.isEmpty {
+                VStack(spacing: 12) {
+                    Spacer(minLength: 40)
+                    Image(systemName: "music.note.list")
+                        .font(.system(size: 48))
+                        .foregroundColor(theme.currentTheme.light)
+
+                    Text("Нет плейлистов")
+                        .font(.system(size: 18, weight: .bold))
+                        .foregroundColor(.textPrimary)
+
+                    Text("Создавайте персональные подборки и слушайте любимую музыку без ограничений")
+                        .font(.system(size: 13))
+                        .foregroundColor(.textSecondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+
+                    Button(action: { showCreatePlaylistSheet = true }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "plus")
+                            Text("Создать первый плейлист")
+                                .fontWeight(.bold)
+                        }
+                        .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
+                        .padding(.horizontal, 20)
+                        .padding(.vertical, 12)
+                        .background(theme.currentTheme.primary)
+                        .clipShape(RoundedRectangle(cornerRadius: 14))
+                    }
+                    .padding(.top, 10)
+
+                    Spacer(minLength: 80)
+                }
+            } else {
+                ForEach(repo.playlists) { pl in
+                    HStack(spacing: 14) {
+                        AsyncImage(url: URL(string: pl.artworkUrl)) { img in
+                            img.resizable().aspectRatio(contentMode: .fill)
+                        } placeholder: {
+                            ZStack {
+                                Color.darkSurfaceVariant
+                                Image(systemName: "music.note.list")
+                                    .foregroundColor(theme.currentTheme.light)
+                            }
+                        }
+                        .frame(width: 56, height: 56)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
 
                         VStack(alignment: .leading, spacing: 3) {
-                            Text(artistName)
-                                .font(.system(size: 16, weight: .bold))
+                            Text(pl.name)
+                                .font(.system(size: 15, weight: .bold))
                                 .foregroundColor(.textPrimary)
+                                .lineLimit(1)
 
-                            Text("Исполнитель • В избранном")
+                            Text("\(pl.trackCount) треков")
                                 .font(.system(size: 12))
                                 .foregroundColor(.textSecondary)
                         }
@@ -246,53 +417,14 @@ public struct LibraryScreenView: View {
                         Spacer()
 
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 14))
+                            .font(.system(size: 14, weight: .semibold))
                             .foregroundColor(.textMuted)
                     }
                     .padding(.horizontal, 16)
-                    .padding(.vertical, 6)
+                    .padding(.vertical, 8)
                 }
             }
         }
-    }
-
-    // Downloads Content
-    private var downloadsContent: some View {
-        VStack(spacing: 0) {
-            if repo.downloadedTracks.isEmpty {
-                VStack(spacing: 12) {
-                    Spacer(minLength: 60)
-                    Image(systemName: "arrow.down.circle")
-                        .font(.system(size: 48))
-                        .foregroundColor(.textMuted)
-                    Text("Нет скачанных треков")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundColor(.textPrimary)
-                    Text("Нажмите '...' на любом треке для скачивания офлайн")
-                        .font(.system(size: 13))
-                        .foregroundColor(.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .padding(.horizontal, 32)
-                }
-            } else {
-                ForEach(repo.downloadedTracks) { track in
-                    TrackRowView(
-                        track: track,
-                        isCurrent: player.currentTrack?.id == track.id,
-                        isPlaying: player.isPlaying,
-                        isFavorite: repo.isFavorite(track.id),
-                        onPlay: {
-                            player.playTrack(track, in: repo.downloadedTracks)
-                        },
-                        onFavoriteToggle: {
-                            repo.toggleFavorite(track)
-                        },
-                        onMoreClick: {
-                            actionTrack = track
-                        }
-                    )
-                }
-            }
-        }
+        .padding(.top, 10)
     }
 }

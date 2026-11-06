@@ -29,8 +29,12 @@ public struct CustomTabBar: View {
     @Binding public var selectedTab: MainTab
     @ObservedObject var theme = ThemeManager.shared
 
+    public init(selectedTab: Binding<MainTab>) {
+        self._selectedTab = selectedTab
+    }
+
     public var body: some View {
-        HStack {
+        HStack(spacing: 0) {
             ForEach(MainTab.allCases, id: \.self) { tab in
                 let isSelected = selectedTab == tab
                 Button(action: {
@@ -48,15 +52,19 @@ public struct CustomTabBar: View {
                             .foregroundColor(isSelected ? theme.currentTheme.primary : .textMuted)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                    .padding(.top, 8)
+                    .padding(.bottom, 4)
                 }
+                .buttonStyle(PlainButtonStyle())
             }
         }
+        .frame(height: 52)
         .background(
-            Color.deepBlack
+            Color.darkSurface
                 .overlay(
                     Rectangle()
-                        .fill(Color.darkBorder.opacity(0.6))
+                        .fill(Color.darkBorder.opacity(0.8))
                         .frame(height: 1),
                     alignment: .top
                 )

@@ -5,10 +5,18 @@ public struct ProfileAndSettingsView: View {
     @ObservedObject var theme = ThemeManager.shared
     public let onBack: () -> Void
 
-    @State private var audioQuality: String = "Высокое (320 kbps)"
+    @State private var showEditNameAlert: Bool = false
+    @State private var newNameInput: String = ""
+    @State private var showQualityDialog: Bool = false
     @State private var cacheSizeMb: Double = 0.0
     @State private var isSyncingNow: Bool = false
     @State private var toastMessage: String? = nil
+
+    private let audioOptions = [
+        ("Высокое (320 kbps)", "Максимальное качество звука без сжатия"),
+        ("Стандартное (128 kbps)", "Оптимальный баланс качества и скорости"),
+        ("Экономия трафика (64 kbps)", "Быстрый старт при слабом интернете")
+    ]
 
     public init(onBack: @escaping () -> Void) {
         self.onBack = onBack
@@ -38,15 +46,20 @@ public struct ProfileAndSettingsView: View {
 
                     Spacer()
 
-                    Color.clear.frame(width: 40, height: 40)
+                    Button(action: onBack) {
+                        Image(systemName: "house.fill")
+                            .font(.system(size: 18))
+                            .foregroundColor(theme.currentTheme.primary)
+                            .frame(width: 40, height: 40)
+                    }
                 }
                 .padding(.horizontal, 16)
                 .padding(.top, 12)
                 .padding(.bottom, 16)
 
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 20) {
-                        // User Profile Hero Card
+                    VStack(spacing: 18) {
+                        // User Profile Hero Card (Matching Android AuthScreen.kt)
                         HStack(spacing: 16) {
                             if !repo.user.avatarUrl.isEmpty {
                                 AsyncImage(url: URL(string: repo.user.avatarUrl)) { img in
@@ -54,205 +67,302 @@ public struct ProfileAndSettingsView: View {
                                 } placeholder: {
                                     Color.darkSurfaceVariant
                                 }
-                                .frame(width: 64, height: 64)
+                                .frame(width: 68, height: 68)
                                 .clipShape(Circle())
+                                .overlay(Circle().stroke(theme.currentTheme.primary, lineWidth: 2))
                             } else {
                                 ZStack {
                                     Circle()
-                                        .fill(theme.currentTheme.primary.opacity(0.18))
-                                        .frame(width: 64, height: 64)
+                                        .fill(Color(hex: 0x282828))
+                                        .frame(width: 68, height: 68)
                                     Image(systemName: "person.fill")
-                                        .font(.system(size: 28))
-                                        .foregroundColor(theme.currentTheme.primary)
+                                        .font(.system(size: 30))
+                                        .foregroundColor(.textSecondary)
                                 }
                             }
 
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(repo.user.name.isEmpty ? "Пользователь Cloudify" : repo.user.name)
-                                    .font(.system(size: 18, weight: .bold))
+                                    .font(.system(size: 19, weight: .bold))
                                     .foregroundColor(.textPrimary)
 
-                                Text(repo.user.email.isEmpty ? "Гостевой аккаунт" : repo.user.email)
-                                    .font(.system(size: 13))
-                                    .foregroundColor(.textSecondary)
+                                if !repo.user.email.isEmpty {
+                                    Text(repo.user.email)
+                                        .font(.system(size: 13))
+                                        .foregroundColor(theme.currentTheme.light)
+                                }
 
-                                HStack(spacing: 4) {
-                                    Circle()
-                                        .fill(Color.green)
-                                        .frame(width: 6, height: 6)
-                                    Text("Облако Cloudify подключено")
-                                        .font(.system(size: 11, weight: .medium))
-                                        .foregroundColor(Color.green)
+                                HStack(spacing: 6) {
+                                    Image(systemName: repo.user.isLoggedIn ? "checkmark.circle.fill" : "person.fill")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(repo.user.isLoggedIn ? theme.currentTheme.light : .textMuted)
+                                    Text(repo.user.isLoggedIn ? "Профиль активен" : "Гостевой режим")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundColor(repo.user.isLoggedIn ? Color(hex: 0xDDD6FE) : .textMuted)
                                 }
                                 .padding(.top, 2)
                             }
 
                             Spacer()
                         }
-                        .padding(18)
-                        .background(Color.darkSurface)
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18)
-                                .stroke(Color.darkBorder, lineWidth: 1)
+                        .padding(20)
+                        .background(
+                            repo.user.isLoggedIn
+                                ? LinearGradient(colors: [theme.currentTheme.dark, Color(hex: 0x1E1B4B)], startPoint: .topLeading, endPoint: .bottomTrailing)
+                                : LinearGradient(colors: [Color.darkSurfaceVariant, Color.darkSurface], startPoint: .topLeading, endPoint: .bottomTrailing)
                         )
+                        .clipShape(RoundedRectangle(cornerRadius: 22))
 
-                        // 1. Theme Selection
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("ТЕМА ОФОРМЛЕНИЯ")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(.textMuted)
-                                .tracking(1)
-
-                            HStack(spacing: 12) {
-                                themeChoiceCard(
-                                    title: "Фирменный желтый",
-                                    color: Color(hex: 0xFACC15),
-                                    isSelected: theme.currentTheme == .yellow
-                                ) {
-                                    theme.setTheme(.yellow)
+                        // Change Name Button
+                        HStack(spacing: 10) {
+                            Button(action: {
+                                newNameInput = repo.user.name
+                                showEditNameAlert = true
+                            }) {
+                                HStack(spacing: 6) {
+                                    Image(systemName: "pencil")
+                                    Text("Изменить имя")
                                 }
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundColor(theme.currentTheme.light)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(Color.darkSurfaceVariant)
+                                .clipShape(RoundedRectangle(cornerRadius: 14))
+                            }
 
-                                themeChoiceCard(
-                                    title: "Фирменный фиолетовый",
-                                    color: Color(hex: 0x8B5CF6),
-                                    isSelected: theme.currentTheme == .violet
-                                ) {
-                                    theme.setTheme(.violet)
+                            if repo.user.isLoggedIn {
+                                Button(action: {
+                                    repo.logout()
+                                    showToast("Вы вышли из аккаунта")
+                                    onBack()
+                                }) {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: "rectangle.portrait.and.arrow.right")
+                                        Text("Выйти")
+                                    }
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.accentPink)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(Color.darkSurfaceVariant)
+                                    .clipShape(RoundedRectangle(cornerRadius: 14))
                                 }
                             }
                         }
-                        .padding(18)
-                        .background(Color.darkSurface)
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18)
-                                .stroke(Color.darkBorder, lineWidth: 1)
-                        )
 
-                        // 2. Audio Quality Selection
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("КАЧЕСТВО АУДИО")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(.textMuted)
-                                .tracking(1)
-
-                            HStack(spacing: 12) {
-                                qualityPill(title: "320 kbps (Высокое)", isSelected: audioQuality.contains("320")) {
-                                    audioQuality = "Высокое (320 kbps)"
-                                }
-                                qualityPill(title: "160 kbps (Стандарт)", isSelected: !audioQuality.contains("320")) {
-                                    audioQuality = "Стандартное (160 kbps)"
-                                }
-                            }
+                        // App Settings Section Title
+                        HStack {
+                            Text("Настройки приложения")
+                                .font(.system(size: 18, weight: .bold))
+                                .foregroundColor(.textPrimary)
+                            Spacer()
                         }
-                        .padding(18)
-                        .background(Color.darkSurface)
-                        .clipShape(RoundedRectangle(cornerRadius: 18))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18)
-                                .stroke(Color.darkBorder, lineWidth: 1)
-                        )
+                        .padding(.top, 6)
 
-                        // 3. Cache & Storage Management
-                        VStack(alignment: .leading, spacing: 14) {
-                            Text("ПАМЯТЬ И КЭШ")
-                                .font(.system(size: 12, weight: .bold))
-                                .foregroundColor(.textMuted)
-                                .tracking(1)
-
+                        // Settings Card
+                        VStack(spacing: 16) {
+                            // 1. Theme Color Selection
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text("Размер сохраненного кэша")
+                                    Text("Цветовая тема")
                                         .font(.system(size: 15, weight: .semibold))
                                         .foregroundColor(.textPrimary)
-                                    Text(String(format: "%.1f MB загруженных треков", cacheSizeMb))
+                                    Text("Фиолетовый или жёлтый стиль")
                                         .font(.system(size: 12))
-                                        .foregroundColor(.textSecondary)
+                                        .foregroundColor(.textMuted)
                                 }
 
                                 Spacer()
 
-                                Button(action: {
-                                    repo.clearCache()
-                                    cacheSizeMb = repo.getCacheSizeMb()
-                                    showToast("Кэш очищен")
-                                }) {
-                                    Text("Очистить")
+                                HStack(spacing: 8) {
+                                    themePill(mode: .violet, name: "Фиолетовый", color: Color(hex: 0x8B5CF6))
+                                    themePill(mode: .yellow, name: "Жёлтый", color: Color(hex: 0xFACC15))
+                                }
+                            }
+
+                            Divider().background(Color.darkBorder)
+
+                            // 2. Audio Quality (Clickable with Dialog)
+                            Button(action: { showQualityDialog = true }) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Качество звука")
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundColor(.textPrimary)
+                                        Text("Битрейт потока и формат аудио")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.textMuted)
+                                    }
+
+                                    Spacer()
+
+                                    Text(repo.audioQuality)
                                         .font(.system(size: 13, weight: .bold))
+                                        .foregroundColor(theme.currentTheme.light)
+
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 12, weight: .bold))
+                                        .foregroundColor(.textMuted)
+                                }
+                            }
+
+                            Divider().background(Color.darkBorder)
+
+                            // 3. Cache & Storage Toggle
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Кэширование на устройство")
+                                        .font(.system(size: 15, weight: .semibold))
+                                        .foregroundColor(.textPrimary)
+                                    Text(String(format: "Автосохранение (%.1f МБ занято)", cacheSizeMb))
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.textMuted)
+                                }
+
+                                Spacer()
+
+                                Toggle("", isOn: Binding(
+                                    get: { repo.isCachingEnabled },
+                                    set: { repo.setCachingEnabled($0) }
+                                ))
+                                .labelsHidden()
+                                .tint(theme.currentTheme.primary)
+                            }
+
+                            if cacheSizeMb > 0.05 {
+                                HStack {
+                                    Spacer()
+                                    Button(action: {
+                                        repo.clearCache()
+                                        cacheSizeMb = repo.getCacheSizeMb()
+                                        showToast("Кэш очищен")
+                                    }) {
+                                        Text("Очистить кэш")
+                                            .font(.system(size: 13, weight: .bold))
+                                            .foregroundColor(.accentPink)
+                                    }
+                                }
+                            }
+
+                            Divider().background(Color.darkBorder)
+
+                            // 4. Cloudify v7.9 Brand Card
+                            HStack(spacing: 12) {
+                                ZStack {
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .fill(theme.currentTheme == .yellow ? Color(hex: 0x1E1A0E) : Color(hex: 0x13101E))
+                                        .frame(width: 46, height: 46)
+
+                                    Image(uiImage: UIImage(named: theme.currentTheme.logoImageName) ?? UIImage())
+                                        .resizable()
+                                        .frame(width: 34, height: 34)
+                                }
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Cloudify v7.9")
+                                        .font(.system(size: 15, weight: .bold))
+                                        .foregroundColor(.textPrimary)
+
+                                    Text(theme.currentTheme == .yellow ? "Иконка: Жёлтая" : "Иконка: Фиолетовая")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(theme.currentTheme.light)
+                                }
+
+                                Spacer()
+
+                                Text(theme.currentTheme == .yellow ? "Жёлтая" : "Фиолетовая")
+                                    .font(.system(size: 11, weight: .bold))
+                                    .foregroundColor(theme.currentTheme.primary)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 4)
+                                    .background(theme.currentTheme.primary.opacity(0.15))
+                                    .clipShape(Capsule())
+                            }
+
+                            Divider().background(Color.darkBorder)
+
+                            // 5. Cloud Backup & Restore Buttons (Exact Android 7.9)
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Облачная синхронизация")
+                                            .font(.system(size: 15, weight: .semibold))
+                                            .foregroundColor(.textPrimary)
+                                        Text("Сохранение треков и плейлистов в вашем аккаунте")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.textMuted)
+                                    }
+
+                                    Spacer()
+
+                                    Image(systemName: "icloud.and.arrow.up.fill")
+                                        .font(.system(size: 20))
                                         .foregroundColor(theme.currentTheme.primary)
-                                        .padding(.horizontal, 14)
-                                        .padding(.vertical, 8)
-                                        .background(Color.darkSurfaceVariant)
-                                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                                }
+
+                                HStack(spacing: 10) {
+                                    Button(action: {
+                                        isSyncingNow = true
+                                        Task {
+                                            await repo.syncToCloud()
+                                            await MainActor.run {
+                                                isSyncingNow = false
+                                                showToast("Плейлисты и треки сохранены в облаке!")
+                                            }
+                                        }
+                                    }) {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "arrow.up.circle.fill")
+                                            Text("В облако")
+                                                .fontWeight(.bold)
+                                        }
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.textPrimary)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(theme.currentTheme.primary.opacity(0.18))
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    }
+
+                                    Button(action: {
+                                        guard !repo.user.email.isEmpty else {
+                                            showToast("Укажите email в профиле")
+                                            return
+                                        }
+                                        isSyncingNow = true
+                                        Task {
+                                            let res = await repo.restoreFromCloud(email: repo.user.email)
+                                            await MainActor.run {
+                                                isSyncingNow = false
+                                                if res.success {
+                                                    showToast("Восстановлено: \(res.count) любимых треков!")
+                                                } else {
+                                                    showToast("Ошибка связи с сервером")
+                                                }
+                                            }
+                                        }
+                                    }) {
+                                        HStack(spacing: 6) {
+                                            Image(systemName: "arrow.down.circle.fill")
+                                            Text("Из облака")
+                                                .fontWeight(.bold)
+                                        }
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.textPrimary)
+                                        .frame(maxWidth: .infinity)
+                                        .padding(.vertical, 12)
+                                        .background(theme.currentTheme.primary.opacity(0.18))
+                                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    }
                                 }
                             }
                         }
                         .padding(18)
-                        .background(Color.darkSurface)
+                        .background(Color.darkSurfaceVariant)
                         .clipShape(RoundedRectangle(cornerRadius: 18))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 18)
-                                .stroke(Color.darkBorder, lineWidth: 1)
-                        )
 
-                        // 4. Cloud Sync Trigger
-                        Button(action: {
-                            isSyncingNow = true
-                            Task {
-                                await repo.syncToCloud()
-                                await MainActor.run {
-                                    isSyncingNow = false
-                                    showToast("Облако синхронизировано!")
-                                }
-                            }
-                        }) {
-                            HStack(spacing: 12) {
-                                Image(systemName: "icloud.and.arrow.up.fill")
-                                    .font(.system(size: 18))
-                                    .foregroundColor(theme.currentTheme.primary)
-
-                                Text(isSyncingNow ? "Синхронизация..." : "Синхронизировать с облаком")
-                                    .font(.system(size: 15, weight: .bold))
-                                    .foregroundColor(.textPrimary)
-
-                                Spacer()
-
-                                if isSyncingNow {
-                                    ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: theme.currentTheme.primary))
-                                }
-                            }
-                            .padding(18)
-                            .background(Color.darkSurface)
-                            .clipShape(RoundedRectangle(cornerRadius: 18))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 18)
-                                    .stroke(Color.darkBorder, lineWidth: 1)
-                            )
-                        }
-                        .disabled(isSyncingNow)
-
-                        // 5. Logout Button
-                        Button(action: {
-                            repo.logout()
-                            onBack()
-                        }) {
-                            HStack {
-                                Spacer()
-                                Image(systemName: "rectangle.portrait.and.arrow.right")
-                                    .foregroundColor(.accentPink)
-                                Text("Выйти из аккаунта")
-                                    .font(.system(size: 15, weight: .bold))
-                                    .foregroundColor(.accentPink)
-                                Spacer()
-                            }
-                            .padding(16)
-                            .background(Color.darkSurfaceVariant)
-                            .clipShape(RoundedRectangle(cornerRadius: 16))
-                        }
-
-                        Spacer().frame(height: 30)
+                        Spacer(minLength: 40)
                     }
                     .padding(.horizontal, 16)
                 }
@@ -278,43 +388,53 @@ public struct ProfileAndSettingsView: View {
         .onAppear {
             cacheSizeMb = repo.getCacheSizeMb()
         }
-    }
-
-    private func themeChoiceCard(title: String, color: Color, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(spacing: 10) {
-                Circle()
-                    .fill(color)
-                    .frame(width: 36, height: 36)
-                    .overlay(
-                        Circle().stroke(Color.white.opacity(0.3), lineWidth: isSelected ? 3 : 0)
-                    )
-
-                Text(title)
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundColor(isSelected ? .textPrimary : .textSecondary)
-                    .multilineTextAlignment(.center)
+        .alert("Изменить имя профиля", isPresented: $showEditNameAlert) {
+            TextField("Ваше имя", text: $newNameInput)
+            Button("Сохранить") {
+                let trimmed = newNameInput.trimmingCharacters(in: .whitespaces)
+                if !trimmed.isEmpty {
+                    repo.user.name = trimmed
+                    repo.saveToStorage()
+                    showToast("Имя сохранено: \(trimmed)")
+                }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(isSelected ? theme.currentTheme.primary.opacity(0.12) : Color.darkSurfaceVariant)
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14)
-                    .stroke(isSelected ? theme.currentTheme.primary : Color.clear, lineWidth: 1.5)
-            )
+            Button("Отмена", role: .cancel) {}
+        }
+        .confirmationDialog("Качество звука", isPresented: $showQualityDialog, titleVisibility: .visible) {
+            ForEach(audioOptions, id: \.0) { option in
+                Button(option.0) {
+                    repo.setAudioQuality(option.0)
+                    showToast("Качество: \(option.0)")
+                }
+            }
+            Button("Отмена", role: .cancel) {}
+        } message: {
+            Text("Выберите битрейт воспроизведения аудиопотока")
         }
     }
 
-    private func qualityPill(title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.system(size: 12, weight: .bold))
-                .foregroundColor(isSelected ? (theme.currentTheme == .yellow ? .black : .white) : .textSecondary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-                .background(isSelected ? theme.currentTheme.primary : Color.darkSurfaceVariant)
-                .clipShape(RoundedRectangle(cornerRadius: 12))
+    private func themePill(mode: AppThemeMode, name: String, color: Color) -> some View {
+        let isSelected = theme.currentTheme == mode
+
+        return Button(action: {
+            theme.setTheme(mode)
+        }) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(color)
+                    .frame(width: 10, height: 10)
+                Text(name)
+                    .font(.system(size: 12, weight: isSelected ? .bold : .normal))
+                    .foregroundColor(isSelected ? .textPrimary : .textSecondary)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(isSelected ? color.opacity(0.2) : Color.darkSurface)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(isSelected ? color : Color.darkBorder, lineWidth: 1)
+            )
         }
     }
 

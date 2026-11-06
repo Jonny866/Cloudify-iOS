@@ -121,6 +121,8 @@ public final class AudioPlayerService: NSObject, ObservableObject {
         self.duration = max(1.0, Double(track.durationMs) / 1000.0)
         self.isBuffering = true
 
+        MusicRepository.shared.addRecentTrack(track)
+
         guard let url = URL(string: track.streamUrl) else {
             isBuffering = false
             return
@@ -254,13 +256,24 @@ public final class AudioPlayerService: NSObject, ObservableObject {
         next()
     }
 
+    private var lastRecordedSecond: Int = 0
+
     private func addPeriodicTimeObserver() {
+        lastRecordedSecond = 0
         let interval = CMTime(seconds: 0.5, preferredTimescale: 600)
         timeObserverToken = player?.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] time in
             guard let self = self else { return }
             let sec = CMTimeGetSeconds(time)
             if !sec.isNaN && !sec.isInfinite {
                 self.currentTime = sec
+                let intSec = Int(sec)
+                if intSec > self.lastRecordedSecond && self.isPlaying {
+                    let diff = intSec - self.lastRecordedSecond
+                    if diff > 0 && diff < 5 {
+                        MusicRepository.shared.addListenedSeconds(diff)
+                    }
+                    self.lastRecordedSecond = intSec
+                }
             }
             if let curItem = self.player?.currentItem {
                 let itemDuration = CMTimeGetSeconds(curItem.duration)

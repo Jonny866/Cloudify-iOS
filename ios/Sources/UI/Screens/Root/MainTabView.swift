@@ -36,7 +36,7 @@ public struct MainTabView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // Bottom Stack: Mini Player + Custom Tab Bar
+            // Bottom Stack: Mini Player + Custom Tab Bar (Seamlessly flush with bottom edge)
             VStack(spacing: 0) {
                 // Mini Player docked above tabs
                 MiniPlayerView(
@@ -48,8 +48,13 @@ public struct MainTabView: View {
                 // Custom Tab Bar
                 CustomTabBar(selectedTab: $selectedTab)
             }
+            .background(
+                Color.darkSurface
+                    .ignoresSafeArea(edges: .bottom)
+            )
         }
-        // Artist Screen Full Screen / Slide in
+        .ignoresSafeArea(.keyboard)
+        // Artist Screen Overlay
         .overlay(
             Group {
                 if let artist = navArtistName {

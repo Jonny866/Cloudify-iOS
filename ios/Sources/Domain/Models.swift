@@ -190,15 +190,15 @@ public struct MonthlyStats: Codable, Equatable {
     public var genrePercent: Int
 
     public init(
-        monthName: String = "Ноябрь 2026",
-        topArtist: String = "GONE.Fludd",
-        topArtistArtwork: String = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400",
-        topTrack: String = "КОД ГИАС",
-        topTrackArtwork: String = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500",
-        topTrackPlays: Int = 42,
-        hoursListened: Double = 34.5,
-        topGenre: String = "Hip-Hop",
-        genrePercent: Int = 78
+        monthName: String = "",
+        topArtist: String = "Пока нет данных",
+        topArtistArtwork: String = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300",
+        topTrack: String = "Включайте треки",
+        topTrackArtwork: String = "",
+        topTrackPlays: Int = 0,
+        hoursListened: Double = 0.0,
+        topGenre: String = "Определяется",
+        genrePercent: Int = 0
     ) {
         self.monthName = monthName
         self.topArtist = topArtist

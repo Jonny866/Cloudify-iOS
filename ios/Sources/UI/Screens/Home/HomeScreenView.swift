@@ -9,7 +9,6 @@ public struct HomeScreenView: View {
     public let onProfileClick: () -> Void
 
     @State private var selectedFilter: String = "Все"
-    @State private var waveTracks: [Track] = []
     @State private var popularForYou: [Track] = []
     @State private var actionTrack: Track? = nil
     @State private var isLoadingInitial: Bool = false
@@ -38,17 +37,13 @@ public struct HomeScreenView: View {
         repo.getPopularArtists()
     }
 
-    private var featuredRelease: Track {
-        repo.favorites.first(where: { $0.artist == "GONE.Fludd" }) ??
-        Track(
-            id: "2428883184",
-            title: "КОД ГИАС",
-            artist: "GONE.Fludd",
-            artworkUrl: CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/artworks-MSGdnR5dCyyXfnbf-asrmMg-t500x500.jpg"),
-            streamUrl: CloudifyAPI.getStreamUrl(webpageUrl: "https://soundcloud.com/gonefluddmus/kod-gias")?.absoluteString ?? "",
-            durationMs: 121655,
-            genre: "Hip-Hop"
-        )
+    private var featuredRelease: Track? {
+        if !repo.favoriteArtists.isEmpty {
+            if let favTrack = repo.favorites.first(where: { repo.favoriteArtists.contains($0.artist) }) {
+                return favTrack
+            }
+        }
+        return repo.favorites.first
     }
 
     // Quick Access items (up to 8 items, 1st is Liked Songs)
@@ -66,7 +61,7 @@ public struct HomeScreenView: View {
             )
         )
 
-        // 2-8 from history or artists
+        // 2-8 from user history or favorites only (NO fake mock artists)
         var seenArtists = Set<String>()
         for track in repo.recentTracks {
             if seenArtists.insert(track.artist).inserted {
@@ -84,15 +79,15 @@ public struct HomeScreenView: View {
         }
 
         if items.count < 8 {
-            for artist in popularArtists {
-                if seenArtists.insert(artist.name).inserted {
+            for track in repo.favorites {
+                if seenArtists.insert(track.artist).inserted {
                     items.append(
                         QuickAccessItem(
-                            id: "artist_\(artist.id)",
-                            title: artist.name,
-                            artworkUrl: artist.artworkUrl,
+                            id: "fav_\(track.id)",
+                            title: track.artist,
+                            artworkUrl: track.artworkUrl,
                             isFavorites: false,
-                            tracks: []
+                            tracks: [track]
                         )
                     )
                     if items.count >= 8 { break }
@@ -112,10 +107,7 @@ public struct HomeScreenView: View {
                 // Quick Access 2-Column Grid
                 quickAccessGrid
 
-                // "Моя Волна" Interactive Banner
-                myWaveBanner
-
-                // "Новый релиз исполнителя" Featured Release Card
+                // "Новый релиз исполнителя" Featured Release Card / Dynamic Placeholder
                 featuredReleaseCard
 
                 // "Недавно прослушанные треки"
@@ -273,186 +265,141 @@ public struct HomeScreenView: View {
         .padding(.horizontal, 16)
     }
 
-    // "Моя Волна" Interactive Banner
-    private var myWaveBanner: some View {
-        let isWavePlaying = player.currentTrack?.genre == "Wave" && player.isPlaying
-
-        return Button(action: {
-            if isWavePlaying {
-                player.togglePlayPause()
-            } else if !waveTracks.isEmpty {
-                player.playTrack(waveTracks[0], in: waveTracks)
-            } else {
-                Task {
-                    if let tracks = try? await CloudifyAPI.shared.getWaveTracks(), !tracks.isEmpty {
-                        await MainActor.run {
-                            self.waveTracks = tracks
-                            player.playTrack(tracks[0], in: tracks)
-                        }
-                    }
-                }
-            }
-        }) {
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 20)
-                    .fill(
-                        LinearGradient(
-                            colors: theme.currentTheme == .yellow
-                                ? [Color(hex: 0x713F12), Color(hex: 0xCA8A04), Color(hex: 0x854D0E)]
-                                : [Color(hex: 0x4C1D95), Color(hex: 0x6D28D9), Color(hex: 0x3B0764)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "waveform")
-                                .font(.system(size: 14, weight: .bold))
-                                .foregroundColor(theme.currentTheme.light)
-                            Text("МОЯ ВОЛНА")
-                                .font(.system(size: 12, weight: .bold))
-                                .tracking(1.5)
-                                .foregroundColor(theme.currentTheme.light)
-                        }
-
-                        Text(isWavePlaying ? "Волна активна • Играет" : "Бесконечный поток музыки")
-                            .font(.system(size: 18, weight: .bold))
-                            .foregroundColor(.white)
-
-                        Text("Подстраивается под ваш вкус")
-                            .font(.system(size: 12))
-                            .foregroundColor(Color.white.opacity(0.8))
-                    }
-
-                    Spacer()
-
-                    ZStack {
-                        Circle()
-                            .fill(Color.white)
-                            .frame(width: 52, height: 52)
-                            .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 3)
-
-                        Image(systemName: isWavePlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 22))
-                            .foregroundColor(Color(hex: 0x1F1F1F))
-                            .offset(x: isWavePlaying ? 0 : 2)
-                    }
-                }
-                .padding(20)
-            }
-            .frame(height: 120)
-            .padding(.horizontal, 16)
-        }
-    }
-
-    // Featured Release Card: GONE.Fludd "КОД ГИАС"
+    // Featured Release Card / Dynamic Placeholder (Matching Android 7.9)
     private var featuredReleaseCard: some View {
-        let release = featuredRelease
+        Group {
+            if let release = featuredRelease {
+                VStack(alignment: .leading, spacing: 10) {
+                    // Header with artist avatar
+                    Button(action: {
+                        onArtistClick(release.artist)
+                    }) {
+                        HStack(spacing: 10) {
+                            AsyncImage(url: URL(string: release.artworkUrl)) { img in
+                                img.resizable().aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Color.darkSurfaceVariant
+                            }
+                            .frame(width: 46, height: 46)
+                            .clipShape(Circle())
 
-        return VStack(alignment: .leading, spacing: 10) {
-            // Header with artist avatar
-            Button(action: {
-                onArtistClick(release.artist)
-            }) {
-                HStack(spacing: 10) {
-                    AsyncImage(url: URL(string: release.artworkUrl)) { img in
-                        img.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Color.darkSurfaceVariant
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Новый релиз исполнителя")
+                                    .font(.system(size: 12))
+                                    .foregroundColor(.textMuted)
+
+                                Text(release.artist)
+                                    .font(.system(size: 20, weight: .bold))
+                                    .foregroundColor(.textPrimary)
+                            }
+                        }
                     }
-                    .frame(width: 46, height: 46)
-                    .clipShape(Circle())
+                    .padding(.horizontal, 16)
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Новый релиз исполнителя")
-                            .font(.system(size: 12))
-                            .foregroundColor(.textMuted)
+                    // Split Big Card
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.darkSurfaceVariant)
 
-                        Text(release.artist)
-                            .font(.system(size: 20, weight: .bold))
-                            .foregroundColor(.textPrimary)
-                    }
-                }
-            }
-            .padding(.horizontal, 16)
+                        HStack(spacing: 14) {
+                            AsyncImage(url: URL(string: release.artworkUrl)) { img in
+                                img.resizable().aspectRatio(contentMode: .fill)
+                            } placeholder: {
+                                Color.darkSurface
+                            }
+                            .frame(width: 130, height: 130)
+                            .clipped()
+                            .clipShape(RoundedRectangle(cornerRadius: 12))
 
-            // Split Big Card
-            ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.darkSurfaceVariant)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("Сингл")
+                                    .font(.system(size: 11))
+                                    .foregroundColor(.textMuted)
 
-                HStack(spacing: 14) {
-                    AsyncImage(url: URL(string: release.artworkUrl)) { img in
-                        img.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Color.darkSurface
-                    }
-                    .frame(width: 130, height: 130)
-                    .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                Text(release.title)
+                                    .font(.system(size: 17, weight: .bold))
+                                    .foregroundColor(.textPrimary)
+                                    .lineLimit(1)
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Сингл")
-                            .font(.system(size: 11))
-                            .foregroundColor(.textMuted)
-
-                        Text(release.title)
-                            .font(.system(size: 17, weight: .bold))
-                            .foregroundColor(.textPrimary)
-                            .lineLimit(1)
-
-                        Text(release.artist)
-                            .font(.system(size: 13))
-                            .foregroundColor(.textSecondary)
-                            .lineLimit(1)
-
-                        Spacer()
-
-                        HStack {
-                            Button(action: {
-                                actionTrack = release
-                            }) {
-                                Image(systemName: "ellipsis")
-                                    .font(.system(size: 16))
+                                Text(release.artist)
+                                    .font(.system(size: 13))
                                     .foregroundColor(.textSecondary)
-                                    .frame(width: 32, height: 32)
-                            }
+                                    .lineLimit(1)
 
-                            Spacer()
+                                Spacer()
 
-                            Button(action: {
-                                repo.toggleFavorite(release)
-                            }) {
-                                Image(systemName: repo.isFavorite(release.id) ? "heart.fill" : "heart")
-                                    .font(.system(size: 20))
-                                    .foregroundColor(repo.isFavorite(release.id) ? .accentPink : .textSecondary)
-                                    .frame(width: 32, height: 32)
-                            }
+                                HStack {
+                                    Button(action: {
+                                        actionTrack = release
+                                    }) {
+                                        Image(systemName: "ellipsis")
+                                            .font(.system(size: 16))
+                                            .foregroundColor(.textSecondary)
+                                            .frame(width: 32, height: 32)
+                                    }
 
-                            Button(action: {
-                                player.playTrack(release, in: [release])
-                            }) {
-                                ZStack {
-                                    Circle()
-                                        .fill(theme.currentTheme.primary)
-                                        .frame(width: 42, height: 42)
+                                    Spacer()
 
-                                    Image(systemName: (player.currentTrack?.id == release.id && player.isPlaying) ? "pause.fill" : "play.fill")
-                                        .font(.system(size: 18))
-                                        .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
-                                        .offset(x: (player.currentTrack?.id == release.id && player.isPlaying) ? 0 : 2)
+                                    Button(action: {
+                                        repo.toggleFavorite(release)
+                                    }) {
+                                        Image(systemName: repo.isFavorite(release.id) ? "heart.fill" : "heart")
+                                            .font(.system(size: 20))
+                                            .foregroundColor(repo.isFavorite(release.id) ? .accentPink : .textSecondary)
+                                            .frame(width: 32, height: 32)
+                                    }
+
+                                    Button(action: {
+                                        player.playTrack(release, in: [release])
+                                    }) {
+                                        ZStack {
+                                            Circle()
+                                                .fill(theme.currentTheme.primary)
+                                                .frame(width: 42, height: 42)
+
+                                            Image(systemName: (player.currentTrack?.id == release.id && player.isPlaying) ? "pause.fill" : "play.fill")
+                                                .font(.system(size: 18))
+                                                .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
+                                                .offset(x: (player.currentTrack?.id == release.id && player.isPlaying) ? 0 : 2)
+                                        }
+                                    }
                                 }
                             }
+                            .padding(.vertical, 12)
+                            .padding(.trailing, 14)
                         }
                     }
-                    .padding(.vertical, 12)
-                    .padding(.trailing, 14)
+                    .frame(height: 130)
+                    .padding(.horizontal, 16)
                 }
+            } else {
+                // Exact Android 7.9 empty placeholder card
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Новый релиз исполнителя")
+                        .font(.system(size: 12))
+                        .foregroundColor(.textMuted)
+
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.darkSurfaceVariant)
+
+                        VStack(spacing: 10) {
+                            Image(systemName: "heart")
+                                .font(.system(size: 28))
+                                .foregroundColor(theme.currentTheme.light)
+
+                            Text("Чтобы отобразить информацию, послушайте несколько любимых треков и артистов")
+                                .font(.system(size: 13))
+                                .foregroundColor(.textSecondary)
+                                .multilineTextAlignment(.center)
+                                .lineSpacing(4)
+                                .padding(.horizontal, 20)
+                        }
+                        .padding(.vertical, 24)
+                    }
+                }
+                .padding(.horizontal, 16)
             }
-            .frame(height: 130)
-            .padding(.horizontal, 16)
         }
     }
 
@@ -583,12 +530,8 @@ public struct HomeScreenView: View {
         isLoadingInitial = true
 
         do {
-            async let waveReq = CloudifyAPI.shared.getWaveTracks()
-            async let popularReq = CloudifyAPI.shared.searchTracks(query: "GONE.Fludd Miyagi phonk hits")
-
-            let (wave, popular) = try await (waveReq, popularReq)
+            let popular = try await CloudifyAPI.shared.searchTracks(query: "GONE.Fludd Miyagi phonk hits")
             await MainActor.run {
-                self.waveTracks = wave
                 self.popularForYou = popular
                 self.isLoadingInitial = false
             }

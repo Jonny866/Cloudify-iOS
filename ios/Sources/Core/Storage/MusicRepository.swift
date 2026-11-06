@@ -19,9 +19,6 @@ public final class MusicRepository: ObservableObject {
     private init() {
         documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         loadFromStorage()
-        if favorites.isEmpty {
-            seedDefaultTracks()
-        }
     }
 
     // Persistence URLs
@@ -382,76 +379,162 @@ public final class MusicRepository: ObservableObject {
         saveToStorage()
     }
 
-    // Default Seed Data from real Cloudify backend
-    private func seedDefaultTracks() {
-        let streamGoneFludd = CloudifyAPI.getStreamUrl(webpageUrl: "https://soundcloud.com/gonefluddmus/kod-gias")?.absoluteString ?? "http://de-bots6.h1cloud.net:25066/api/stream?url=https%3A%2F%2Fsoundcloud.com%2Fgonefluddmus%2Fkod-gias"
-        let coverGoneFludd = CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/artworks-MSGdnR5dCyyXfnbf-asrmMg-t500x500.jpg")
-
-        let streamMiyagi = CloudifyAPI.getStreamUrl(webpageUrl: "https://soundcloud.com/miyagi_black/minor")?.absoluteString ?? "http://de-bots6.h1cloud.net:25066/api/stream?url=https%3A%2F%2Fsoundcloud.com%2Fmiyagi_black%2Fminor"
-        let coverMiyagi = CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/artworks-HY4P9FmLUzbNs8YA-ommqfw-t500x500.jpg")
-
-        let streamKordhell = CloudifyAPI.getStreamUrl(webpageUrl: "https://soundcloud.com/kordhell/murder-in-my-mind")?.absoluteString ?? "http://de-bots6.h1cloud.net:25066/api/stream?url=https%3A%2F%2Fsoundcloud.com%2Fkordhell%2Fmurder-in-my-mind"
-        let coverKordhell = CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/artworks-IwkAewk5iACtjj7t-mjkT9g-t500x500.jpg")
-
-        let streamDvrst = CloudifyAPI.getStreamUrl(webpageUrl: "https://soundcloud.com/dvrst/close-eyes")?.absoluteString ?? "http://de-bots6.h1cloud.net:25066/api/stream?url=https%3A%2F%2Fsoundcloud.com%2Fdvrst%2Fclose-eyes"
-        let coverDvrst = CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/artworks-91G3KMdmclZj1XN2-blvgeQ-t500x500.jpg")
-
-        let seeds: [Track] = [
-            Track(
-                id: "2428883184",
-                title: "КОД ГИАС",
-                artist: "GONE.Fludd",
-                artworkUrl: coverGoneFludd,
-                streamUrl: streamGoneFludd,
-                durationMs: 121655,
-                genre: "Hip-Hop",
-                isFavorite: true
-            ),
-            Track(
-                id: "859281946",
-                title: "Minor",
-                artist: "Miyagi & Эндшпиль",
-                artworkUrl: coverMiyagi,
-                streamUrl: streamMiyagi,
-                durationMs: 175846,
-                genre: "Hip-Hop",
-                isFavorite: true
-            ),
-            Track(
-                id: "sc_kordhell_mim",
-                title: "Murder In My Mind",
-                artist: "KORDHELL",
-                artworkUrl: coverKordhell,
-                streamUrl: streamKordhell,
-                durationMs: 145000,
-                genre: "Phonk",
-                isFavorite: true
-            ),
-            Track(
-                id: "sc_dvrst_ce",
-                title: "Close Eyes",
-                artist: "DVRST",
-                artworkUrl: coverDvrst,
-                streamUrl: streamDvrst,
-                durationMs: 132000,
-                genre: "Drift Phonk",
-                isFavorite: true
-            )
+    // Dynamic Monthly Stats (Calculated exactly like Android 7.9)
+    public func getMonthlyStats() -> MonthlyStats {
+        let monthNames = [
+            "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь",
+            "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"
         ]
+        let cal = Calendar.current
+        let monthIdx = cal.component(.month, from: Date()) - 1
+        let year = cal.component(.year, from: Date())
+        let currentMonthName = "\(monthNames[max(0, min(11, monthIdx))]) \(year)"
 
-        self.favorites = seeds
-        self.favoriteIds = Set(seeds.map { $0.id })
-        self.favoriteArtists = ["GONE.Fludd", "Miyagi & Эндшпиль", "KORDHELL", "DVRST", "dabbackwood"]
-        self.playlists = [
-            Playlist(
-                id: "pl_favorites",
-                name: "Любимые треки",
-                artworkUrl: coverGoneFludd,
-                trackCount: seeds.count,
-                isCustom: false,
-                trackIds: seeds.map { $0.id }
+        let totalSeconds = UserDefaults.standard.double(forKey: "cloudify_listened_sec")
+        let hoursListened: Double
+        if totalSeconds > 0 {
+            hoursListened = (totalSeconds / 3600.0 * 10.0).rounded() / 10.0
+        } else if !recentTracks.isEmpty {
+            hoursListened = (Double(recentTracks.count) * 2.0 / 60.0 * 10.0).rounded() / 10.0
+        } else {
+            hoursListened = 0.0
+        }
+
+        if recentTracks.isEmpty {
+            return MonthlyStats(
+                monthName: currentMonthName,
+                topArtist: "Пока нет данных",
+                topArtistArtwork: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300",
+                topTrack: "Включайте треки",
+                topTrackArtwork: "",
+                topTrackPlays: 0,
+                hoursListened: hoursListened,
+                topGenre: "Определяется",
+                genrePercent: 0
             )
-        ]
-        saveToStorage()
+        }
+
+        let totalPlays = recentTracks.count
+
+        // Group by artist
+        var artistCounts: [String: Int] = [:]
+        for track in recentTracks {
+            artistCounts[track.artist, default: 0] += 1
+        }
+        let topArtistEntry = artistCounts.max(by: { $0.value < $1.value })
+        let topArtist = topArtistEntry?.key ?? "Любимый исполнитель"
+
+        var topArtistAvatar = ""
+        if let match = recentTracks.first(where: { $0.artist == topArtist }) {
+            topArtistAvatar = match.artworkUrl
+        }
+        if topArtistAvatar.isEmpty {
+            if let popMatch = getPopularArtists().first(where: { $0.name.caseInsensitiveCompare(topArtist) == .orderedSame }) {
+                topArtistAvatar = popMatch.artworkUrl
+            }
+        }
+        if topArtistAvatar.isEmpty {
+            topArtistAvatar = "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300"
+        }
+
+        // Group by track ID
+        var trackCounts: [String: Int] = [:]
+        for track in recentTracks {
+            trackCounts[track.id, default: 0] += 1
+        }
+        let topTrackEntry = trackCounts.max(by: { $0.value < $1.value })
+        let topTrackMatch = recentTracks.first(where: { $0.id == topTrackEntry?.key })
+        let topTrackTitle = topTrackMatch?.title ?? "Любимый трек"
+        let topTrackArtwork = topTrackMatch?.artworkUrl ?? ""
+        let topTrackPlays = topTrackEntry?.value ?? 1
+
+        // Group by genre
+        var genreCounts: [String: Int] = [:]
+        for track in recentTracks {
+            let g = track.genre.isEmpty ? "Hip-Hop / Phonk" : track.genre
+            genreCounts[g, default: 0] += 1
+        }
+        let topGenreEntry = genreCounts.max(by: { $0.value < $1.value })
+        let topGenre = topGenreEntry?.key ?? "Hip-Hop / Phonk"
+        let genrePercent = totalPlays > 0 ? ((topGenreEntry?.value ?? 0) * 100 / totalPlays) : 100
+
+        return MonthlyStats(
+            monthName: currentMonthName,
+            topArtist: topArtist,
+            topArtistArtwork: topArtistAvatar,
+            topTrack: topTrackTitle,
+            topTrackArtwork: topTrackArtwork,
+            topTrackPlays: topTrackPlays,
+            hoursListened: hoursListened,
+            topGenre: topGenre,
+            genrePercent: genrePercent
+        )
+    }
+
+    // Import tracks from .txt (Spotify / Yandex / VK export)
+    public func importTracksFromText(_ rawText: String) async -> (imported: Int, total: Int) {
+        let lines = rawText.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && !$0.hasPrefix("#") && !$0.hasPrefix("//") }
+            .map { line -> String in
+                if let range = line.range(of: #"^\s*\[?\d+[.)\]\-:]*\s*"#, options: .regularExpression) {
+                    var s = line
+                    s.removeSubrange(range)
+                    return s.trimmingCharacters(in: .whitespacesAndNewlines)
+                }
+                return line
+            }
+            .filter { !$0.isEmpty }
+
+        guard !lines.isEmpty else { return (0, 0) }
+
+        var count = 0
+        for query in lines {
+            do {
+                let results = try await CloudifyAPI.shared.search(query: query)
+                if let first = results.first {
+                    await MainActor.run {
+                        if !self.favoriteIds.contains(first.id) {
+                            var t = first
+                            t.isFavorite = true
+                            self.favorites.append(t)
+                            self.favoriteIds.insert(t.id)
+                            count += 1
+                        }
+                    }
+                }
+            } catch {}
+        }
+
+        await MainActor.run {
+            self.saveToStorage()
+        }
+        if user.isLoggedIn {
+            await syncToCloud()
+        }
+        return (count, lines.count)
+    }
+
+    public func downloadAllTracks(_ tracks: [Track]) {
+        for t in tracks {
+            downloadTrack(t)
+        }
+    }
+
+    // Audio Quality & Caching Settings (Matching Android 7.9)
+    public var audioQuality: String {
+        get { UserDefaults.standard.string(forKey: "cloudify_audio_quality") ?? "Высокое (320 kbps)" }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "cloudify_audio_quality")
+            objectWillChange.send()
+        }
+    }
+
+    public var isCachingEnabled: Bool {
+        get { UserDefaults.standard.object(forKey: "cloudify_caching_enabled") as? Bool ?? true }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "cloudify_caching_enabled")
+            objectWillChange.send()
+        }
     }
 }
