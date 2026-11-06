@@ -216,14 +216,6 @@ public final class CloudifyAPI {
             )
         }
     }
-                artist: dto.uploader,
-                artworkUrl: cover,
-                streamUrl: stream,
-                durationMs: duration,
-                genre: "Wave"
-            )
-        }
-    }
 
     public func syncUserData(payload: SyncPayloadDto) async throws -> SyncResponseDto {
         guard let url = URL(string: "\(Self.baseURL)/api/user/sync") else {
