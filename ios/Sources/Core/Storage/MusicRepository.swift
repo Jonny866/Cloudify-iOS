@@ -491,7 +491,7 @@ public final class MusicRepository: ObservableObject {
         var count = 0
         for query in lines {
             do {
-                let results = try await CloudifyAPI.shared.search(query: query)
+                let results = try await CloudifyAPI.shared.searchTracks(query: query)
                 if let first = results.first {
                     await MainActor.run {
                         if !self.favoriteIds.contains(first.id) {
@@ -522,19 +522,19 @@ public final class MusicRepository: ObservableObject {
     }
 
     // Audio Quality & Caching Settings (Matching Android 7.9)
-    public var audioQuality: String {
-        get { UserDefaults.standard.string(forKey: "cloudify_audio_quality") ?? "Высокое (320 kbps)" }
-        set {
-            UserDefaults.standard.set(newValue, forKey: "cloudify_audio_quality")
-            objectWillChange.send()
-        }
+    @Published public var audioQuality: String = UserDefaults.standard.string(forKey: "cloudify_audio_quality") ?? "Высокое (320 kbps)" {
+        didSet { UserDefaults.standard.set(audioQuality, forKey: "cloudify_audio_quality") }
     }
 
-    public var isCachingEnabled: Bool {
-        get { UserDefaults.standard.object(forKey: "cloudify_caching_enabled") as? Bool ?? true }
-        set {
-            UserDefaults.standard.set(newValue, forKey: "cloudify_caching_enabled")
-            objectWillChange.send()
-        }
+    @Published public var isCachingEnabled: Bool = UserDefaults.standard.object(forKey: "cloudify_caching_enabled") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(isCachingEnabled, forKey: "cloudify_caching_enabled") }
+    }
+
+    public func setAudioQuality(_ quality: String) {
+        self.audioQuality = quality
+    }
+
+    public func setCachingEnabled(_ enabled: Bool) {
+        self.isCachingEnabled = enabled
     }
 }

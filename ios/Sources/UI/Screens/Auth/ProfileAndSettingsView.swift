@@ -222,10 +222,7 @@ public struct ProfileAndSettingsView: View {
 
                                 Spacer()
 
-                                Toggle("", isOn: Binding(
-                                    get: { repo.isCachingEnabled },
-                                    set: { repo.setCachingEnabled($0) }
-                                ))
+                                Toggle("", isOn: $repo.isCachingEnabled)
                                 .labelsHidden()
                                 .tint(theme.currentTheme.primary)
                             }
@@ -403,7 +400,7 @@ public struct ProfileAndSettingsView: View {
         .confirmationDialog("Качество звука", isPresented: $showQualityDialog, titleVisibility: .visible) {
             ForEach(audioOptions, id: \.0) { option in
                 Button(option.0) {
-                    repo.setAudioQuality(option.0)
+                    repo.audioQuality = option.0
                     showToast("Качество: \(option.0)")
                 }
             }
@@ -424,7 +421,7 @@ public struct ProfileAndSettingsView: View {
                     .fill(color)
                     .frame(width: 10, height: 10)
                 Text(name)
-                    .font(.system(size: 12, weight: isSelected ? .bold : .normal))
+                    .font(.system(size: 12, weight: isSelected ? .bold : .regular))
                     .foregroundColor(isSelected ? .textPrimary : .textSecondary)
             }
             .padding(.horizontal, 10)

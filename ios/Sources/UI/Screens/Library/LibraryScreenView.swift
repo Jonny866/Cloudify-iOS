@@ -343,7 +343,7 @@ public struct LibraryScreenView: View {
                         onFavoriteToggle: {
                             repo.toggleFavorite(track)
                         },
-                        onMore: {
+                        onMoreClick: {
                             actionTrack = track
                         }
                     )
