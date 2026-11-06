@@ -198,7 +198,7 @@ public struct MonthlyStats: Codable, Equatable {
         topTrackPlays: Int = 42,
         hoursListened: Double = 34.5,
         topGenre: String = "Hip-Hop",
-        genrePercent: 78
+        genrePercent: Int = 78
     ) {
         self.monthName = monthName
         self.topArtist = topArtist
