@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Cloudify" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#FF090810</item>
+        <item name="android:navigationBarColor">#FF090810</item>
+        <item name="android:windowBackground">#FF090810</item>
+    </style>
+
+    <style name="Theme.Cloudify.Yellow" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#FF090810</item>
+        <item name="android:navigationBarColor">#FF090810</item>
+        <item name="android:windowBackground">#FF090810</item>
+    </style>
+</resources>

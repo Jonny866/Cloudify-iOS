@@ -1,0 +1,22 @@
+*.iml
+.gradle
+/local.properties
+/.idea
+.DS_Store
+/build
+/app/build
+/server/__pycache__
+/server/*.pyc
+*.hprof
+.cxx
+/captures
+
+# Xcode & iOS
+*.xcodeproj/project.xcworkspace
+*.xcodeproj/xcuserdata
+*.xcworkspace
+xcuserdata/
+DerivedData/
+*.ipa
+output/
+xcodebuild.log

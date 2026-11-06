@@ -1,0 +1,84 @@
+name: Build and Sign Cloudify iOS IPA
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    name: Build & Package IPA for iPhone (Ksign, Scarlet, TrollStore)
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: |
+          set -e
+          xcodegen generate
+          sed -i '' 's/objectVersion = [0-9]*/objectVersion = 60/g' Cloudify.xcodeproj/project.pbxproj
+          echo "Verified objectVersion in Cloudify.xcodeproj:"
+          grep "objectVersion" Cloudify.xcodeproj/project.pbxproj
+
+      - name: Build Xcode App Binary
+        run: |
+          set -e
+          set -o pipefail
+          xcodebuild -project Cloudify.xcodeproj \
+            -scheme Cloudify \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -derivedDataPath build \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGNING_ALLOWED=YES \
+            CODE_SIGNING_REQUIRED=NO \
+            AD_HOC_CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            build 2>&1 | tee xcodebuild.log || {
+              echo "=== XCODEBUILD FAILED. LAST 50 LINES: ==="
+              tail -n 50 xcodebuild.log
+              exit 1
+            }
+
+      - name: Package IPA
+        run: |
+          set -e
+          APP_PATH=$(find build/Build/Products/Release-iphoneos -name "Cloudify.app" -type d | head -n 1)
+          if [ -z "$APP_PATH" ]; then
+            APP_PATH=$(find build/Build/Products -name "Cloudify.app" -type d | head -n 1)
+          fi
+          if [ -z "$APP_PATH" ]; then
+            echo "Error: Cloudify.app not found!"
+            find build/Build/Products -maxdepth 3 -ls || true
+            exit 1
+          fi
+          echo "App bundle found at: $APP_PATH"
+          ls -lh "$APP_PATH"
+
+          if [ ! -f "$APP_PATH/Cloudify" ]; then
+            echo "Error: Executable Cloudify missing!"
+            ls -la "$APP_PATH"
+            exit 1
+          fi
+          chmod 755 "$APP_PATH/Cloudify"
+
+          mkdir -p output/Payload
+          cp -R "$APP_PATH" output/Payload/
+          cd output
+          zip -r -y Cloudify.ipa Payload
+          echo "Cloudify.ipa successfully generated:"
+          ls -lh Cloudify.ipa
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Cloudify-iOS-IPA
+          path: output/Cloudify.ipa
+          retention-days: 30
