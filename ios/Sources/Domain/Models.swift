@@ -26,7 +26,7 @@ public struct Track: Identifiable, Codable, Equatable, Hashable {
         lyrics: String = "Текст трека доступен в плеере...",
         isFavorite: Bool = false,
         isDownloaded: Bool = false,
-        localFilePath: String? = null
+        localFilePath: String? = nil
     ) {
         self.id = id
         self.title = title
