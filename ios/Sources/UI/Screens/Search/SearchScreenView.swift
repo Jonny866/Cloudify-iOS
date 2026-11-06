@@ -219,7 +219,7 @@ public struct SearchScreenView: View {
         searchTask = Task {
             try? await Task.sleep(nanoseconds: 350_000_000)
             if !Task.isCancelled {
-                await performSearch(trimmed)
+                performSearch(trimmed)
             }
         }
     }

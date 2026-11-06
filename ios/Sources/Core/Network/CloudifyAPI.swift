@@ -143,7 +143,7 @@ public final class CloudifyAPI {
     }
 
     public static func getStreamUrl(webpageUrl: String, quality: String = "high") -> URL? {
-        let encoded = rfc3986Encode(webpageUrl)
+        let encoded = Self.rfc3986Encode(webpageUrl)
         let qParam = (quality.lowercased().contains("high") || quality.contains("320")) ? "high" : "standard"
         return URL(string: "\(baseURL)/api/stream?url=\(encoded)&quality=\(qParam)")
     }
@@ -152,12 +152,12 @@ public final class CloudifyAPI {
         guard let raw = originalThumbnailUrl, !raw.isEmpty else {
             return "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500"
         }
-        let encoded = rfc3986Encode(raw)
+        let encoded = Self.rfc3986Encode(raw)
         return "\(baseURL)/api/cover?url=\(encoded)"
     }
 
     public func searchTracks(query: String) async throws -> [Track] {
-        let encodedQuery = rfc3986Encode(query)
+        let encodedQuery = Self.rfc3986Encode(query)
         guard let url = URL(string: "\(Self.baseURL)/api/search?q=\(encodedQuery)") else {
             return []
         }
@@ -175,7 +175,7 @@ public final class CloudifyAPI {
         return dtos.map { dto in
             let stream = Self.getStreamUrl(webpageUrl: dto.url)?.absoluteString ?? dto.url
             let cover = Self.getCoverUrl(originalThumbnailUrl: dto.thumbnail)
-            let duration = dto.duration_ms ?? 180000
+            let duration: Int64 = dto.duration_ms ?? 180000
             return Track(
                 id: dto.id,
                 title: dto.title,
@@ -204,10 +204,18 @@ public final class CloudifyAPI {
         return dtos.map { dto in
             let stream = Self.getStreamUrl(webpageUrl: dto.url)?.absoluteString ?? dto.url
             let cover = Self.getCoverUrl(originalThumbnailUrl: dto.thumbnail)
-            let duration = dto.duration_ms ?? 190000
+            let duration: Int64 = dto.duration_ms ?? 190000
             return Track(
                 id: dto.id,
                 title: dto.title,
+                artist: dto.uploader,
+                artworkUrl: cover,
+                streamUrl: stream,
+                durationMs: duration,
+                genre: "Wave"
+            )
+        }
+    }
                 artist: dto.uploader,
                 artworkUrl: cover,
                 streamUrl: stream,

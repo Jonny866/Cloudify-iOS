@@ -310,9 +310,8 @@ public final class MusicRepository: ObservableObject {
 
         do {
             let res = try await CloudifyAPI.shared.getUserData(userId: userId, email: cleanEmail)
-            var restoredFavCount = 0
 
-            await MainActor.run {
+            let restoredFavCount = await MainActor.run { () -> Int in
                 let finalName = res.user?.name.isEmpty == false ? (res.user?.name ?? name) : name
                 let finalAvatar = res.user?.avatarUrl.isEmpty == false ? (res.user?.avatarUrl ?? avatar) : avatar
 
@@ -338,7 +337,6 @@ public final class MusicRepository: ObservableObject {
                         )
                     }
                     self.favoriteIds = Set(self.favorites.map { $0.id })
-                    restoredFavCount = self.favorites.count
                 }
 
                 if !res.playlists.isEmpty {
@@ -360,6 +358,7 @@ public final class MusicRepository: ObservableObject {
 
                 self.saveToStorage()
                 self.isSyncing = false
+                return self.favorites.count
             }
 
             // If new account with no cloud library, sync initial profile up

@@ -43,7 +43,7 @@ public final class AudioPlayerService: NSObject, ObservableObject {
     private func setupAudioSession() {
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default, options: [.allowAirPlay, .allowBluetooth, .allowBluetoothA2DP])
+            try session.setCategory(.playback, mode: .default, options: [.allowAirPlay, .allowBluetoothHFP, .allowBluetoothA2DP])
             try session.setActive(true)
         } catch {
             print("AudioPlayerService: Failed to setup AVAudioSession: \(error)")
@@ -168,7 +168,7 @@ public final class AudioPlayerService: NSObject, ObservableObject {
 
     public func next() {
         guard !queue.isEmpty else { return }
-        if repeatMode == .one, let cur = currentTrack {
+        if repeatMode == .one, currentTrack != nil {
             seek(to: 0)
             play()
             return
