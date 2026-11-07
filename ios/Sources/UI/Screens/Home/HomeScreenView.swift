@@ -423,7 +423,6 @@ public struct HomeScreenView: View {
             .padding(.horizontal, 16)
         }
     }
-    }
 
     // "Недавно прослушанные треки"
     private var recentTracksSection: some View {

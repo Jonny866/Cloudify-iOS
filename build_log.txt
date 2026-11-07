@@ -1,0 +1,408 @@
+﻿2026-11-07T03:35:45.3959080Z Current runner version: '2.338.2'
+2026-11-07T03:35:45.3972720Z ##[group]Runner Image Provisioner
+2026-11-07T03:35:45.3973230Z Hosted Compute Agent
+2026-11-07T03:35:45.3973590Z Version: 20261028.624
+2026-11-07T03:35:45.3973990Z Commit: 54898b74c23fde5556c9b3c3a2290865feef0dfe
+2026-11-07T03:35:45.3974440Z Build Date: 2026-10-28T21:51:42Z
+2026-11-07T03:35:45.3974870Z Worker ID: {80508e6e-788b-4645-9bd3-fd341897c529}
+2026-11-07T03:35:45.3975310Z Region: westus
+2026-11-07T03:35:45.3975650Z Cloud: MacCloud
+2026-11-07T03:35:45.3975990Z ##[endgroup]
+2026-11-07T03:35:45.3976800Z ##[group]Operating System
+2026-11-07T03:35:45.3977170Z macOS
+2026-11-07T03:35:45.3977500Z 26.7.2
+2026-11-07T03:35:45.3977820Z 25G332
+2026-11-07T03:35:45.3978140Z ##[endgroup]
+2026-11-07T03:35:45.3978480Z ##[group]Runner Image
+2026-11-07T03:35:45.3978850Z Image: macos-26-arm64
+2026-11-07T03:35:45.3979220Z Version: 20261102.0473.1
+2026-11-07T03:35:45.3980000Z Included Software: https://github.com/actions/runner-images/blob/macos-26-arm64/20261102.0473/images/macos/macos-26-arm64-Readme.md
+2026-11-07T03:35:45.3981000Z Image Release: https://github.com/actions/runner-images/releases/tag/macos-26-arm64%2F20261102.0473
+2026-11-07T03:35:45.3981640Z ##[endgroup]
+2026-11-07T03:35:45.3982400Z ##[group]GITHUB_TOKEN Permissions
+2026-11-07T03:35:45.3983330Z Contents: read
+2026-11-07T03:35:45.3983680Z Metadata: read
+2026-11-07T03:35:45.3984030Z Packages: read
+2026-11-07T03:35:45.3984370Z ##[endgroup]
+2026-11-07T03:35:45.3985650Z Secret source: Actions
+2026-11-07T03:35:45.3986180Z Cache mode: write
+2026-11-07T03:35:45.3986600Z Prepare workflow directory
+2026-11-07T03:35:45.4194620Z Prepare all required actions
+2026-11-07T03:35:45.4231790Z Getting action download info
+2026-11-07T03:35:45.8525940Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-11-07T03:35:46.1104940Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-11-07T03:35:46.3431070Z Complete job name: Build & Package IPA for iPhone (Ksign, Scarlet, TrollStore)
+2026-11-07T03:35:46.3943040Z ##[group]Run actions/checkout@v4
+2026-11-07T03:35:46.3943590Z with:
+2026-11-07T03:35:46.3943920Z   repository: Jonny866/Cloudify-iOS
+2026-11-07T03:35:46.3946450Z   token: ***
+2026-11-07T03:35:46.3946760Z   ssh-strict: true
+2026-11-07T03:35:46.3947080Z   ssh-user: git
+2026-11-07T03:35:46.3947400Z   persist-credentials: true
+2026-11-07T03:35:46.3947740Z   clean: true
+2026-11-07T03:35:46.3948070Z   sparse-checkout-cone-mode: true
+2026-11-07T03:35:46.3948440Z   fetch-depth: 1
+2026-11-07T03:35:46.3948760Z   fetch-tags: false
+2026-11-07T03:35:46.3949080Z   show-progress: true
+2026-11-07T03:35:46.3949410Z   lfs: false
+2026-11-07T03:35:46.3949710Z   submodules: false
+2026-11-07T03:35:46.3950040Z   set-safe-directory: true
+2026-11-07T03:35:46.3950410Z   allow-unsafe-pr-checkout: false
+2026-11-07T03:35:46.3950880Z ##[endgroup]
+2026-11-07T03:35:47.0035380Z Syncing repository: Jonny866/Cloudify-iOS
+2026-11-07T03:35:47.0063060Z ##[group]Getting Git version info
+2026-11-07T03:35:47.0075430Z Working directory is '/Users/runner/work/Cloudify-iOS/Cloudify-iOS'
+2026-11-07T03:35:47.0087440Z [command]/opt/homebrew/bin/git version
+2026-11-07T03:35:47.0612120Z git version 2.56.0
+2026-11-07T03:35:47.0642870Z ##[endgroup]
+2026-11-07T03:35:47.0653520Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/65ab6d6d-5bad-460d-b799-9bc218ae0bef/.gitconfig'
+2026-11-07T03:35:47.0659990Z Temporarily overriding HOME='/Users/runner/work/_temp/65ab6d6d-5bad-460d-b799-9bc218ae0bef' before making global git config changes
+2026-11-07T03:35:47.0661430Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-07T03:35:47.0664150Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:35:47.0809730Z Deleting the contents of '/Users/runner/work/Cloudify-iOS/Cloudify-iOS'
+2026-11-07T03:35:47.0815270Z ##[group]Initializing the repository
+2026-11-07T03:35:47.0820780Z [command]/opt/homebrew/bin/git init /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:35:47.1079240Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-07T03:35:47.1080480Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-07T03:35:47.1081220Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-07T03:35:47.1081850Z hint: call:
+2026-11-07T03:35:47.1082220Z hint:
+2026-11-07T03:35:47.1082700Z hint: 	git config --global init.defaultBranch <name>
+2026-11-07T03:35:47.1083170Z hint:
+2026-11-07T03:35:47.1083620Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-07T03:35:47.1084370Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-07T03:35:47.1085090Z hint:
+2026-11-07T03:35:47.1085410Z hint: 	git branch -m <name>
+2026-11-07T03:35:47.1085860Z hint:
+2026-11-07T03:35:47.1086340Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-07T03:35:47.1093670Z Initialized empty Git repository in /Users/runner/work/Cloudify-iOS/Cloudify-iOS/.git/
+2026-11-07T03:35:47.1102190Z [command]/opt/homebrew/bin/git remote add origin https://github.com/Jonny866/Cloudify-iOS
+2026-11-07T03:35:47.1183380Z ##[endgroup]
+2026-11-07T03:35:47.1183990Z ##[group]Disabling automatic garbage collection
+2026-11-07T03:35:47.1185970Z [command]/opt/homebrew/bin/git config --local gc.auto 0
+2026-11-07T03:35:47.1254460Z ##[endgroup]
+2026-11-07T03:35:47.1255050Z ##[group]Setting up auth
+2026-11-07T03:35:47.1259750Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-07T03:35:47.1333810Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-07T03:35:47.2505950Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-07T03:35:47.2585920Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-07T03:35:47.3426820Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-07T03:35:47.3488700Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-07T03:35:47.4249000Z [command]/opt/homebrew/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-07T03:35:47.4315410Z ##[endgroup]
+2026-11-07T03:35:47.4316120Z ##[group]Fetching the repository
+2026-11-07T03:35:47.4321430Z [command]/opt/homebrew/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +d698114acad5bd7e86c601403020e564ab912867:refs/remotes/origin/main
+2026-11-07T03:35:48.0210890Z From https://github.com/Jonny866/Cloudify-iOS
+2026-11-07T03:35:48.0212330Z  * [new ref]         d698114acad5bd7e86c601403020e564ab912867 -> origin/main
+2026-11-07T03:35:48.0216420Z ##[endgroup]
+2026-11-07T03:35:48.0217340Z ##[group]Determining the checkout info
+2026-11-07T03:35:48.0219250Z ##[endgroup]
+2026-11-07T03:35:48.0224280Z [command]/opt/homebrew/bin/git sparse-checkout disable
+2026-11-07T03:35:48.0320130Z [command]/opt/homebrew/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-07T03:35:48.0398540Z ##[group]Checking out the ref
+2026-11-07T03:35:48.0405160Z [command]/opt/homebrew/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-11-07T03:35:48.0858860Z Switched to a new branch 'main'
+2026-11-07T03:35:48.0961990Z branch 'main' set up to track 'origin/main'.
+2026-11-07T03:35:48.1271600Z ##[endgroup]
+2026-11-07T03:35:48.1575510Z [command]/opt/homebrew/bin/git log -1 --format=%H
+2026-11-07T03:35:48.1677890Z d698114acad5bd7e86c601403020e564ab912867
+2026-11-07T03:35:48.2452430Z ##[group]Run brew install xcodegen
+2026-11-07T03:35:48.2453510Z [36;1mbrew install xcodegen[0m
+2026-11-07T03:35:48.2499980Z shell: /bin/bash -e {0}
+2026-11-07T03:35:48.2500810Z ##[endgroup]
+2026-11-07T03:35:50.8980080Z [32m==>[0m [1mDownloading bottle manifests[0m
+2026-11-07T03:35:50.9038750Z ✔︎ Bottle Manifest xcodegen (2.46.0)
+2026-11-07T03:35:50.9054680Z [32m==>[0m [1mFetching downloads for: [32mxcodegen[39m[0m
+2026-11-07T03:35:52.2751610Z ✔︎ Bottle xcodegen (2.46.0)
+2026-11-07T03:35:52.3103170Z [34m==>[0m [1mPouring xcodegen--2.46.0.arm64_tahoe.bottle.1.tar.gz[0m
+2026-11-07T03:35:52.8330040Z 🍺  /opt/homebrew/Cellar/xcodegen/2.46.0: 38 files, 7.4MB
+2026-11-07T03:35:52.8452190Z ##[group]Run set -e
+2026-11-07T03:35:52.8452580Z [36;1mset -e[0m
+2026-11-07T03:35:52.8452780Z [36;1mxcodegen generate[0m
+2026-11-07T03:35:52.8453200Z [36;1msed -i '' 's/objectVersion = [0-9]*/objectVersion = 60/g' Cloudify.xcodeproj/project.pbxproj[0m
+2026-11-07T03:35:52.8453720Z [36;1mecho "Verified objectVersion in Cloudify.xcodeproj:"[0m
+2026-11-07T03:35:52.8454120Z [36;1mgrep "objectVersion" Cloudify.xcodeproj/project.pbxproj[0m
+2026-11-07T03:35:52.8489180Z shell: /bin/bash -e {0}
+2026-11-07T03:35:52.8489470Z ##[endgroup]
+2026-11-07T03:35:52.8957560Z ⚙️  Generating plists...
+2026-11-07T03:35:52.8958100Z ⚙️  Generating project...
+2026-11-07T03:35:52.9067600Z ⚙️  Writing project...
+2026-11-07T03:35:52.9128870Z Created project at /Users/runner/work/Cloudify-iOS/Cloudify-iOS/Cloudify.xcodeproj
+2026-11-07T03:35:52.9187260Z Verified objectVersion in Cloudify.xcodeproj:
+2026-11-07T03:35:52.9219920Z 	objectVersion = 60;
+2026-11-07T03:35:52.9256720Z ##[group]Run set -e
+2026-11-07T03:35:52.9257050Z [36;1mset -e[0m
+2026-11-07T03:35:52.9257250Z [36;1mset -o pipefail[0m
+2026-11-07T03:35:52.9257520Z [36;1mxcodebuild -project Cloudify.xcodeproj \[0m
+2026-11-07T03:35:52.9257820Z [36;1m  -scheme Cloudify \[0m
+2026-11-07T03:35:52.9258120Z [36;1m  -configuration Release \[0m
+2026-11-07T03:35:52.9258470Z [36;1m  -destination 'generic/platform=iOS' \[0m
+2026-11-07T03:35:52.9258760Z [36;1m  -derivedDataPath build \[0m
+2026-11-07T03:35:52.9259010Z [36;1m  CODE_SIGN_IDENTITY="-" \[0m
+2026-11-07T03:35:52.9259260Z [36;1m  CODE_SIGN_STYLE=Manual \[0m
+2026-11-07T03:35:52.9259520Z [36;1m  CODE_SIGNING_ALLOWED=YES \[0m
+2026-11-07T03:35:52.9259820Z [36;1m  CODE_SIGNING_REQUIRED=NO \[0m
+2026-11-07T03:35:52.9260130Z [36;1m  AD_HOC_CODE_SIGNING_ALLOWED=YES \[0m
+2026-11-07T03:35:52.9260450Z [36;1m  DEVELOPMENT_TEAM="" \[0m
+2026-11-07T03:35:52.9262770Z [36;1m  PROVISIONING_PROFILE_SPECIFIER="" \[0m
+2026-11-07T03:35:52.9263180Z [36;1m  build 2>&1 | tee xcodebuild.log || {[0m
+2026-11-07T03:35:52.9263550Z [36;1m    echo "=== XCODEBUILD FAILED. LAST 50 LINES: ==="[0m
+2026-11-07T03:35:52.9263860Z [36;1m    tail -n 50 xcodebuild.log[0m
+2026-11-07T03:35:52.9264100Z [36;1m    exit 1[0m
+2026-11-07T03:35:52.9270050Z [36;1m  }[0m
+2026-11-07T03:35:52.9312210Z shell: /bin/bash -e {0}
+2026-11-07T03:35:52.9312580Z ##[endgroup]
+2026-11-07T03:35:54.2820710Z Command line invocation:
+2026-11-07T03:35:54.2823190Z     /Applications/Xcode_26.6.app/Contents/Developer/usr/bin/xcodebuild -project Cloudify.xcodeproj -scheme Cloudify -configuration Release -destination generic/platform=iOS -derivedDataPath build CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual CODE_SIGNING_ALLOWED=YES CODE_SIGNING_REQUIRED=NO AD_HOC_CODE_SIGNING_ALLOWED=YES DEVELOPMENT_TEAM= PROVISIONING_PROFILE_SPECIFIER= build
+2026-11-07T03:35:54.2824460Z 
+2026-11-07T03:35:54.2824670Z Build settings from command line:
+2026-11-07T03:35:54.2825090Z     AD_HOC_CODE_SIGNING_ALLOWED = YES
+2026-11-07T03:35:54.2825430Z     CODE_SIGN_IDENTITY = -
+2026-11-07T03:35:54.2825710Z     CODE_SIGN_STYLE = Manual
+2026-11-07T03:35:54.2826000Z     CODE_SIGNING_ALLOWED = YES
+2026-11-07T03:35:54.2826290Z     CODE_SIGNING_REQUIRED = NO
+2026-11-07T03:35:54.2826580Z     DEVELOPMENT_TEAM = 
+2026-11-07T03:35:54.2826860Z     PROVISIONING_PROFILE_SPECIFIER = 
+2026-11-07T03:35:54.3234280Z 
+2026-11-07T03:35:58.5119150Z 2026-11-07 03:35:58.511 xcodebuild[6740:23191] [MT] IDERunDestination: Supported platforms for the buildables in the current scheme is empty.
+2026-11-07T03:35:58.5775040Z note: Using codesigning identity override: -
+2026-11-07T03:35:59.2776250Z ComputePackagePrebuildTargetDependencyGraph
+2026-11-07T03:35:59.3429050Z 
+2026-11-07T03:35:59.3458000Z Prepare packages
+2026-11-07T03:35:59.3464280Z 
+2026-11-07T03:35:59.3486270Z CreateBuildRequest
+2026-11-07T03:35:59.3592160Z 
+2026-11-07T03:35:59.3655130Z SendProjectDescription
+2026-11-07T03:35:59.3687330Z 
+2026-11-07T03:35:59.3718430Z CreateBuildOperation
+2026-11-07T03:35:59.3753930Z 
+2026-11-07T03:35:59.3763320Z ComputeTargetDependencyGraph
+2026-11-07T03:35:59.3803380Z note: Building targets in dependency order
+2026-11-07T03:35:59.3808520Z note: Target dependency graph (1 target)
+2026-11-07T03:35:59.3809810Z     Target 'Cloudify' in project 'Cloudify' (no dependencies)
+2026-11-07T03:35:59.3810420Z 
+2026-11-07T03:35:59.3810820Z GatherProvisioningInputs
+2026-11-07T03:35:59.5170250Z 
+2026-11-07T03:35:59.5266110Z CreateBuildDescription
+2026-11-07T03:35:59.5572240Z 
+2026-11-07T03:35:59.5578970Z ExecuteExternalTool /Applications/Xcode_26.6.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets
+2026-11-07T03:36:02.0969200Z 
+2026-11-07T03:36:02.0971930Z ExecuteExternalTool /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -x c -c /dev/null
+2026-11-07T03:36:02.0973270Z 
+2026-11-07T03:36:02.0979220Z ExecuteExternalTool /Applications/Xcode_26.6.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+2026-11-07T03:36:02.1052010Z 
+2026-11-07T03:36:02.1071460Z ExecuteExternalTool /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+2026-11-07T03:36:02.9775050Z 
+2026-11-07T03:36:02.9912920Z ExecuteExternalTool /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+2026-11-07T03:36:03.1975050Z 
+2026-11-07T03:36:03.2205690Z Build description signature: e36f84d3fe3ca0749bf131ca532aa95d
+2026-11-07T03:36:03.2217540Z Build description path: /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/XCBuildData/e36f84d3fe3ca0749bf131ca532aa95d.xcbuilddata
+2026-11-07T03:36:03.2609410Z ClangStatCache /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/SDKStatCaches.noindex/iphoneos26.5-23F81a-688ef53f1462e2c8f657fdc38a81448fee66e23052a0157c865c76b268046726.sdkstatcache
+2026-11-07T03:36:03.2712920Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS/Cloudify.xcodeproj
+2026-11-07T03:36:03.2836670Z     /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -o /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/SDKStatCaches.noindex/iphoneos26.5-23F81a-688ef53f1462e2c8f657fdc38a81448fee66e23052a0157c865c76b268046726.sdkstatcache
+2026-11-07T03:36:06.2344640Z 
+2026-11-07T03:36:06.2346210Z CreateBuildDirectory /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products
+2026-11-07T03:36:06.2347300Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS/Cloudify.xcodeproj
+2026-11-07T03:36:06.2348100Z     builtin-create-build-directory /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products
+2026-11-07T03:36:06.2348650Z 
+2026-11-07T03:36:06.2349190Z CreateBuildDirectory /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex
+2026-11-07T03:36:06.2368940Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS/Cloudify.xcodeproj
+2026-11-07T03:36:06.2370370Z     builtin-create-build-directory /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex
+2026-11-07T03:36:06.2370740Z 
+2026-11-07T03:36:06.2371410Z WriteAuxiliaryFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify-8c76ae1a0d11d5694334df54d5a759be-VFS-iphoneos/all-product-headers.yaml
+2026-11-07T03:36:06.2372830Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS/Cloudify.xcodeproj
+2026-11-07T03:36:06.2373780Z     write-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify-8c76ae1a0d11d5694334df54d5a759be-VFS-iphoneos/all-product-headers.yaml
+2026-11-07T03:36:06.2375990Z 
+2026-11-07T03:36:06.2376870Z CreateBuildDirectory /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos
+2026-11-07T03:36:06.2378970Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS/Cloudify.xcodeproj
+2026-11-07T03:36:06.2380660Z     builtin-create-build-directory /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos
+2026-11-07T03:36:06.2382900Z 
+2026-11-07T03:36:06.2383930Z CreateBuildDirectory /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+2026-11-07T03:36:06.2385950Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS/Cloudify.xcodeproj
+2026-11-07T03:36:06.2393410Z     builtin-create-build-directory /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules
+2026-11-07T03:36:06.2394230Z 
+2026-11-07T03:36:06.2394580Z CreateBuildDirectory /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/ExplicitPrecompiledModules
+2026-11-07T03:36:06.2395940Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS/Cloudify.xcodeproj
+2026-11-07T03:36:06.2407680Z     builtin-create-build-directory /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/ExplicitPrecompiledModules
+2026-11-07T03:36:06.2409210Z 
+2026-11-07T03:36:06.2411120Z CreateBuildDirectory /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/EagerLinkingTBDs/Release-iphoneos
+2026-11-07T03:36:06.2412980Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS/Cloudify.xcodeproj
+2026-11-07T03:36:06.2414720Z     builtin-create-build-directory /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/EagerLinkingTBDs/Release-iphoneos
+2026-11-07T03:36:06.2416880Z 
+2026-11-07T03:36:06.2420420Z WriteAuxiliaryFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify_const_extract_protocols.json (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2424850Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2426920Z     write-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify_const_extract_protocols.json
+2026-11-07T03:36:06.2429200Z 
+2026-11-07T03:36:06.2431120Z WriteAuxiliaryFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify.SwiftFileList (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2433530Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2436670Z     write-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify.SwiftFileList
+2026-11-07T03:36:06.2439350Z 
+2026-11-07T03:36:06.2442090Z WriteAuxiliaryFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify.SwiftConstValuesFileList (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2446500Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2449960Z     write-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify.SwiftConstValuesFileList
+2026-11-07T03:36:06.2452560Z 
+2026-11-07T03:36:06.2454380Z WriteAuxiliaryFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify.LinkFileList (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2457000Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2458880Z     write-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify.LinkFileList
+2026-11-07T03:36:06.2460530Z 
+2026-11-07T03:36:06.2462170Z WriteAuxiliaryFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify.hmap (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2464390Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2466030Z     write-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify.hmap
+2026-11-07T03:36:06.2467440Z 
+2026-11-07T03:36:06.2470360Z WriteAuxiliaryFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify-OutputFileMap.json (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2472940Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2474990Z     write-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify-OutputFileMap.json
+2026-11-07T03:36:06.2476700Z 
+2026-11-07T03:36:06.2478580Z WriteAuxiliaryFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify.DependencyStaticMetadataFileList (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2481120Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2483160Z     write-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify.DependencyStaticMetadataFileList
+2026-11-07T03:36:06.2485440Z 
+2026-11-07T03:36:06.2486180Z WriteAuxiliaryFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify.DependencyMetadataFileList (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2487280Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2488180Z     write-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify.DependencyMetadataFileList
+2026-11-07T03:36:06.2488940Z 
+2026-11-07T03:36:06.2489720Z WriteAuxiliaryFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-project-headers.hmap (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2490820Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2491510Z     write-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-project-headers.hmap
+2026-11-07T03:36:06.2492150Z 
+2026-11-07T03:36:06.2492810Z WriteAuxiliaryFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-own-target-headers.hmap (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2494270Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2495130Z     write-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-own-target-headers.hmap
+2026-11-07T03:36:06.2495730Z 
+2026-11-07T03:36:06.2496380Z WriteAuxiliaryFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-generated-files.hmap (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2497310Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2498290Z     write-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-generated-files.hmap
+2026-11-07T03:36:06.2499100Z 
+2026-11-07T03:36:06.2499870Z WriteAuxiliaryFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-all-target-headers.hmap (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2500820Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2501760Z     write-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-all-target-headers.hmap
+2026-11-07T03:36:06.2502340Z 
+2026-11-07T03:36:06.2503240Z WriteAuxiliaryFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-all-non-framework-target-headers.hmap (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2504840Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2505880Z     write-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-all-non-framework-target-headers.hmap
+2026-11-07T03:36:06.2506480Z 
+2026-11-07T03:36:06.2507010Z MkDir /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/Cloudify.app (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2507940Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2508550Z     /bin/mkdir -p /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/Cloudify.app
+2026-11-07T03:36:06.2508970Z 
+2026-11-07T03:36:06.2509750Z MkDir /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_output/thinned (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2510750Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2511600Z     /bin/mkdir -p /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_output/thinned
+2026-11-07T03:36:06.2512360Z 
+2026-11-07T03:36:06.2512980Z MkDir /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_output/unthinned (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2513870Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2514660Z     /bin/mkdir -p /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_output/unthinned
+2026-11-07T03:36:06.2515170Z 
+2026-11-07T03:36:06.2515620Z GenerateAssetSymbols /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2516240Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2521650Z     /Applications/Xcode_26.6.app/Contents/Developer/usr/bin/actool /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets --compile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/Cloudify.app --output-format human-readable-text --notices --warnings --export-dependency-info /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_dependencies --output-partial-info-plist /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_generated_info.plist --app-icon AppIcon --compress-pngs --enable-on-demand-resources YES --development-region en --target-device iphone --target-device ipad --minimum-deployment-target 16.0 --platform iphoneos --bundle-identifier com.cloudify.music --generate-swift-asset-symbol-extensions NO --generate-swift-asset-symbols /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources/GeneratedAssetSymbols.swift --generate-objc-asset-symbols /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources/GeneratedAssetSymbols.h --generate-asset-symbol-index /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+2026-11-07T03:36:06.2527330Z /* com.apple.actool.document.warnings */
+2026-11-07T03:36:06.2658230Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets:./AppIcon.appiconset/(null)[2d][icon_20.png]: warning: The app icon set "AppIcon" has 3 unassigned children.
+2026-11-07T03:36:06.2662800Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets:./AppIcon.appiconset/[][ipad][76x76][][][2x][][][][]: warning: AppIcon.appiconset/icon_180.png is 180x180 but should be 152x152.
+2026-11-07T03:36:06.2665670Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets:./AppIcon.appiconset/(null)[2d][icon_20.png]: warning: The app icon set "AppIcon" has 3 unassigned children.
+2026-11-07T03:36:06.2668460Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets:./AppIcon.appiconset/[][ipad][76x76][][][2x][][][][]: warning: AppIcon.appiconset/icon_180.png is 180x180 but should be 152x152.
+2026-11-07T03:36:06.2670230Z /* com.apple.actool.compilation-results */
+2026-11-07T03:36:06.2673120Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+2026-11-07T03:36:06.2674210Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources/GeneratedAssetSymbols.h
+2026-11-07T03:36:06.2675200Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources/GeneratedAssetSymbols.swift
+2026-11-07T03:36:06.2675720Z 
+2026-11-07T03:36:06.2675730Z 
+2026-11-07T03:36:06.2676420Z CopyPNGFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/Cloudify.app/cloudify_logo_yellow.png /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/cloudify_logo_yellow.png (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2677320Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2678380Z     /Applications/Xcode_26.6.app/Contents/Developer/usr/bin/copypng -compress -strip-PNG-text /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/cloudify_logo_yellow.png /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/Cloudify.app/cloudify_logo_yellow.png
+2026-11-07T03:36:06.2679450Z 
+2026-11-07T03:36:06.2680180Z CopyPNGFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/Cloudify.app/cloudify_logo_violet.png /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/cloudify_logo_violet.png (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2681090Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2682650Z     /Applications/Xcode_26.6.app/Contents/Developer/usr/bin/copypng -compress -strip-PNG-text /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/cloudify_logo_violet.png /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/Cloudify.app/cloudify_logo_violet.png
+2026-11-07T03:36:06.2683600Z 
+2026-11-07T03:36:06.2684300Z CompileAssetCatalogVariant thinned /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/Cloudify.app /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:06.2685230Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:06.2688280Z     /Applications/Xcode_26.6.app/Contents/Developer/usr/bin/actool /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets --compile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_output/thinned --output-format human-readable-text --notices --warnings --export-dependency-info /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_dependencies_thinned --output-partial-info-plist /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_generated_info.plist_thinned --app-icon AppIcon --compress-pngs --enable-on-demand-resources YES --development-region en --target-device iphone --target-device ipad --minimum-deployment-target 16.0 --platform iphoneos
+2026-11-07T03:36:09.4878010Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Sources/UI/Screens/Home/HomeScreenView.swift:571:1: error: extraneous '}' at top level
+2026-11-07T03:36:09.4879300Z }
+2026-11-07T03:36:09.4880220Z ^
+2026-11-07T03:36:09.5257590Z 
+2026-11-07T03:36:09.5258610Z SwiftDriver Cloudify normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:09.5260230Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:09.5280070Z     builtin-SwiftDriver -- /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Cloudify -O -whole-module-optimization @/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify.SwiftFileList -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -target arm64-apple-ios16.0 -g -module-cache-path /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/ModuleCache.noindex -Xfrontend -serialize-debugging-options -swift-version 5 -I /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos -F /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos -c -num-threads 3 -Xcc -ivfsstatcache -Xcc /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/SDKStatCaches.noindex/iphoneos26.5-23F81a-688ef53f1462e2c8f657fdc38a81448fee66e23052a0157c865c76b268046726.sdkstatcache -output-file-map /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/ModuleCache.noindex -sdk-module-cache-path /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify_const_extract_protocols.json -Xcc -iquote -Xcc /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-generated-files.hmap -Xcc -I/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-own-target-headers.hmap -Xcc -I/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-all-target-headers.hmap -Xcc -iquote -Xcc /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-project-headers.hmap -Xcc -I/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/include -Xcc -I/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources-normal/arm64 -Xcc -I/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources/arm64 -Xcc -I/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources -emit-objc-header -emit-objc-header-path /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify-Swift.h -working-directory /Users/runner/work/Cloudify-iOS/Cloudify-iOS -no-emit-module-separately-wmo
+2026-11-07T03:36:09.5380110Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Sources/UI/Screens/Home/HomeScreenView.swift:571:1: error: Extraneous '}' at top level
+2026-11-07T03:36:09.5387980Z }
+2026-11-07T03:36:09.5388370Z ^ (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:09.5388710Z 
+2026-11-07T03:36:09.5409680Z ** BUILD FAILED **
+2026-11-07T03:36:09.5410000Z 
+2026-11-07T03:36:09.5410130Z 
+2026-11-07T03:36:09.5410350Z The following build commands failed:
+2026-11-07T03:36:09.5410940Z 	SwiftDriver Cloudify normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:09.5429470Z 	Building project Cloudify with scheme Cloudify and configuration Release
+2026-11-07T03:36:09.5430150Z (2 failures)
+2026-11-07T03:36:09.6016270Z === XCODEBUILD FAILED. LAST 50 LINES: ===
+2026-11-07T03:36:09.6340490Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:09.6341730Z     /bin/mkdir -p /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_output/thinned
+2026-11-07T03:36:09.6342720Z 
+2026-11-07T03:36:09.6343840Z MkDir /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_output/unthinned (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:09.6349500Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:09.6350430Z     /bin/mkdir -p /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_output/unthinned
+2026-11-07T03:36:09.6351190Z 
+2026-11-07T03:36:09.6351650Z GenerateAssetSymbols /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:09.6352510Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:09.6358100Z     /Applications/Xcode_26.6.app/Contents/Developer/usr/bin/actool /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets --compile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/Cloudify.app --output-format human-readable-text --notices --warnings --export-dependency-info /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_dependencies --output-partial-info-plist /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_generated_info.plist --app-icon AppIcon --compress-pngs --enable-on-demand-resources YES --development-region en --target-device iphone --target-device ipad --minimum-deployment-target 16.0 --platform iphoneos --bundle-identifier com.cloudify.music --generate-swift-asset-symbol-extensions NO --generate-swift-asset-symbols /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources/GeneratedAssetSymbols.swift --generate-objc-asset-symbols /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources/GeneratedAssetSymbols.h --generate-asset-symbol-index /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+2026-11-07T03:36:09.6363020Z /* com.apple.actool.document.warnings */
+2026-11-07T03:36:09.6364100Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets:./AppIcon.appiconset/(null)[2d][icon_20.png]: warning: The app icon set "AppIcon" has 3 unassigned children.
+2026-11-07T03:36:09.6365310Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets:./AppIcon.appiconset/[][ipad][76x76][][][2x][][][][]: warning: AppIcon.appiconset/icon_180.png is 180x180 but should be 152x152.
+2026-11-07T03:36:09.6366560Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets:./AppIcon.appiconset/(null)[2d][icon_20.png]: warning: The app icon set "AppIcon" has 3 unassigned children.
+2026-11-07T03:36:09.6367740Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets:./AppIcon.appiconset/[][ipad][76x76][][][2x][][][][]: warning: AppIcon.appiconset/icon_180.png is 180x180 but should be 152x152.
+2026-11-07T03:36:09.6368480Z /* com.apple.actool.compilation-results */
+2026-11-07T03:36:09.6369260Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources/GeneratedAssetSymbols-Index.plist
+2026-11-07T03:36:09.6370380Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources/GeneratedAssetSymbols.h
+2026-11-07T03:36:09.6371340Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources/GeneratedAssetSymbols.swift
+2026-11-07T03:36:09.6371860Z 
+2026-11-07T03:36:09.6371870Z 
+2026-11-07T03:36:09.6372560Z CopyPNGFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/Cloudify.app/cloudify_logo_yellow.png /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/cloudify_logo_yellow.png (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:09.6373660Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:09.6374640Z     /Applications/Xcode_26.6.app/Contents/Developer/usr/bin/copypng -compress -strip-PNG-text /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/cloudify_logo_yellow.png /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/Cloudify.app/cloudify_logo_yellow.png
+2026-11-07T03:36:09.6375500Z 
+2026-11-07T03:36:09.6376250Z CopyPNGFile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/Cloudify.app/cloudify_logo_violet.png /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/cloudify_logo_violet.png (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:09.6378060Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:09.6379140Z     /Applications/Xcode_26.6.app/Contents/Developer/usr/bin/copypng -compress -strip-PNG-text /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/cloudify_logo_violet.png /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/Cloudify.app/cloudify_logo_violet.png
+2026-11-07T03:36:09.6380060Z 
+2026-11-07T03:36:09.6380790Z CompileAssetCatalogVariant thinned /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/Cloudify.app /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:09.6381690Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:09.6384800Z     /Applications/Xcode_26.6.app/Contents/Developer/usr/bin/actool /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Resources/Assets.xcassets --compile /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_output/thinned --output-format human-readable-text --notices --warnings --export-dependency-info /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_dependencies_thinned --output-partial-info-plist /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/assetcatalog_generated_info.plist_thinned --app-icon AppIcon --compress-pngs --enable-on-demand-resources YES --development-region en --target-device iphone --target-device ipad --minimum-deployment-target 16.0 --platform iphoneos
+2026-11-07T03:36:09.6388110Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Sources/UI/Screens/Home/HomeScreenView.swift:571:1: error: extraneous '}' at top level
+2026-11-07T03:36:09.6388650Z }
+2026-11-07T03:36:09.6388850Z ^
+2026-11-07T03:36:09.6388960Z 
+2026-11-07T03:36:09.6389310Z SwiftDriver Cloudify normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:09.6389850Z     cd /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:09.6402080Z     builtin-SwiftDriver -- /Applications/Xcode_26.6.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name Cloudify -O -whole-module-optimization @/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify.SwiftFileList -enable-bare-slash-regex -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode_26.6.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.5.sdk -target arm64-apple-ios16.0 -g -module-cache-path /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/ModuleCache.noindex -Xfrontend -serialize-debugging-options -swift-version 5 -I /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos -F /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos -c -num-threads 3 -Xcc -ivfsstatcache -Xcc /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/SDKStatCaches.noindex/iphoneos26.5-23F81a-688ef53f1462e2c8f657fdc38a81448fee66e23052a0157c865c76b268046726.sdkstatcache -output-file-map /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/ModuleCache.noindex -sdk-module-cache-path /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify_const_extract_protocols.json -Xcc -iquote -Xcc /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-generated-files.hmap -Xcc -I/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-own-target-headers.hmap -Xcc -I/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-all-target-headers.hmap -Xcc -iquote -Xcc /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Cloudify-project-headers.hmap -Xcc -I/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Products/Release-iphoneos/include -Xcc -I/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources-normal/arm64 -Xcc -I/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources/arm64 -Xcc -I/Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/DerivedSources -emit-objc-header -emit-objc-header-path /Users/runner/work/Cloudify-iOS/Cloudify-iOS/build/Build/Intermediates.noindex/Cloudify.build/Release-iphoneos/Cloudify.build/Objects-normal/arm64/Cloudify-Swift.h -working-directory /Users/runner/work/Cloudify-iOS/Cloudify-iOS -no-emit-module-separately-wmo
+2026-11-07T03:36:09.6415260Z /Users/runner/work/Cloudify-iOS/Cloudify-iOS/ios/Sources/UI/Screens/Home/HomeScreenView.swift:571:1: error: Extraneous '}' at top level
+2026-11-07T03:36:09.6415980Z }
+2026-11-07T03:36:09.6416230Z ^ (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:09.6416460Z 
+2026-11-07T03:36:09.6416580Z ** BUILD FAILED **
+2026-11-07T03:36:09.6416730Z 
+2026-11-07T03:36:09.6416740Z 
+2026-11-07T03:36:09.6416810Z The following build commands failed:
+2026-11-07T03:36:09.6417390Z 	SwiftDriver Cloudify normal arm64 com.apple.xcode.tools.swift.compiler (in target 'Cloudify' from project 'Cloudify')
+2026-11-07T03:36:09.6418180Z 	Building project Cloudify with scheme Cloudify and configuration Release
+2026-11-07T03:36:09.6418590Z (2 failures)
+2026-11-07T03:36:09.6434510Z ##[error]Process completed with exit code 1.
+2026-11-07T03:36:09.6648130Z Post job cleanup.
+2026-11-07T03:36:10.1497270Z [command]/opt/homebrew/bin/git version
+2026-11-07T03:36:10.1882370Z git version 2.56.0
+2026-11-07T03:36:10.1937340Z Copying '/Users/runner/.gitconfig' to '/Users/runner/work/_temp/9e819c75-5f4f-4af0-be75-3fd65eb0ae1d/.gitconfig'
+2026-11-07T03:36:10.1944380Z Temporarily overriding HOME='/Users/runner/work/_temp/9e819c75-5f4f-4af0-be75-3fd65eb0ae1d' before making global git config changes
+2026-11-07T03:36:10.1946910Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-07T03:36:10.1952930Z [command]/opt/homebrew/bin/git config --global --add safe.directory /Users/runner/work/Cloudify-iOS/Cloudify-iOS
+2026-11-07T03:36:10.2153840Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-07T03:36:10.2377030Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-07T03:36:10.3938560Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-07T03:36:10.4057190Z http.https://github.com/.extraheader
+2026-11-07T03:36:10.4077920Z [command]/opt/homebrew/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-11-07T03:36:10.4174250Z [command]/opt/homebrew/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-07T03:36:10.5538820Z [command]/opt/homebrew/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-07T03:36:10.5614010Z [command]/opt/homebrew/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-07T03:36:10.7290350Z Cleaning up orphan processes
+2026-11-07T03:36:10.9096020Z Terminate orphan process: pid (7328) (ibtoold)
+2026-11-07T03:36:11.7417880Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
