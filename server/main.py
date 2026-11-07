@@ -35,7 +35,7 @@ import httpx
 import uvicorn
 from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse, RedirectResponse
 
 app = FastAPI(title="Cloudify SoundCloud Backend", version="6.8")
 
@@ -73,8 +73,12 @@ TARGET_CACHE_SIZE_BYTES = 180 * 1024 * 1024  # Clean down to 180 MB
 
 # SoundCloud Client ID management
 KNOWN_CLIENT_IDS = [
-    "8UvlHph8Fhze3ZixMeSkFXj4Dwkblsjt"
+    "39AVoiZVrdvJEMFLH8T0c5WGshQaAPRJ",
+    "8UvlHph8Fhze3ZixMeSkFXj4Dwkblsjt",
+    "a3dd183a357981fe3282973260a1f342",
+    "b45b1aa10f1ac2941914220c8210292d"
 ]
+CLIENT_ID_INDEX = 0
 CURRENT_CLIENT_ID = KNOWN_CLIENT_IDS[0]
 CLIENT_ID_LOCK = asyncio.Lock()
 LAST_CLIENT_ID_FETCH = 0
@@ -85,12 +89,15 @@ SEARCH_CACHE_TTL = 1800  # 30 min
 DOWNLOAD_LOCKS: Dict[str, asyncio.Lock] = {}
 DOWNLOAD_LOCKS_LOCK = asyncio.Lock()
 
+# Concurrency limiter: Maximum 2 concurrent FFmpeg transcode processes to prevent container CPU/RAM lockup
+TRANSCODE_SEMAPHORE = asyncio.Semaphore(2)
+
 HAS_FFMPEG = shutil.which("ffmpeg") is not None
 
 
 async def get_valid_client_id(force_refresh: bool = False) -> str:
-    """Returns an active SoundCloud client_id, automatically scraping fresh ones if needed."""
-    global CURRENT_CLIENT_ID, LAST_CLIENT_ID_FETCH
+    """Returns an active SoundCloud client_id, automatically scraping fresh ones or rotating candidates."""
+    global CURRENT_CLIENT_ID, LAST_CLIENT_ID_FETCH, CLIENT_ID_INDEX
 
     now = time.time()
     if not force_refresh and CURRENT_CLIENT_ID and (now - LAST_CLIENT_ID_FETCH < 3600):
@@ -127,14 +134,13 @@ async def get_valid_client_id(force_refresh: bool = False) -> str:
                             except Exception:
                                 continue
                 except Exception as e:
-                    print(f"[SoundCloud Client ID Scrape Failed on {page_url}]: {e}")
+                    print(f"[SoundCloud Client ID Scrape Failed on {page_url}]: {type(e).__name__}: {e}")
 
-        # Fallback to known working list
-        for candidate in KNOWN_CLIENT_IDS:
-            CURRENT_CLIENT_ID = candidate
-            LAST_CLIENT_ID_FETCH = time.time()
-            return CURRENT_CLIENT_ID
-
+        # Rotate to next known working candidate
+        CLIENT_ID_INDEX = (CLIENT_ID_INDEX + 1) % len(KNOWN_CLIENT_IDS)
+        CURRENT_CLIENT_ID = KNOWN_CLIENT_IDS[CLIENT_ID_INDEX]
+        LAST_CLIENT_ID_FETCH = time.time()
+        print(f"[SoundCloud Auth] Rotated to fallback client_id: {CURRENT_CLIENT_ID}")
         return CURRENT_CLIENT_ID
 
 
@@ -233,8 +239,14 @@ async def _search_soundcloud_api(query: str, limit: int = 30) -> List[dict]:
     client_id = await get_valid_client_id()
     results = []
 
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-        for attempt in range(2):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "Referer": "https://soundcloud.com/",
+    }
+
+    async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, headers=headers) as client:
+        for attempt in range(len(KNOWN_CLIENT_IDS) + 1):
             try:
                 url = "https://api-v2.soundcloud.com/search/tracks"
                 params = {
@@ -244,8 +256,8 @@ async def _search_soundcloud_api(query: str, limit: int = 30) -> List[dict]:
                     "offset": 0,
                 }
                 res = await client.get(url, params=params)
-                if res.status_code == 403:
-                    # Token expired, force refresh and retry
+                if res.status_code in (401, 403):
+                    # Token expired, rotate to next client_id
                     client_id = await get_valid_client_id(force_refresh=True)
                     continue
 
@@ -298,7 +310,7 @@ async def _search_soundcloud_api(query: str, limit: int = 30) -> List[dict]:
                         })
                     break
             except Exception as e:
-                print(f"[SoundCloud Search Error]: {e}")
+                print(f"[SoundCloud Search Error]: {type(e).__name__}: {e}")
 
     if results:
         SEARCH_CACHE[cache_key] = (time.time(), results)
@@ -355,13 +367,18 @@ async def _resolve_soundcloud_media(webpage_url: str, is_fallback: bool = False)
     """
     client_id = await get_valid_client_id()
 
-    async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Referer": "https://soundcloud.com/",
+    }
+
+    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, headers=headers) as client:
         for attempt in range(2):
             try:
                 # 1. Resolve webpage URL to track object
                 resolve_url = "https://api-v2.soundcloud.com/resolve"
                 res = await client.get(resolve_url, params={"url": webpage_url, "client_id": client_id})
-                if res.status_code == 403:
+                if res.status_code in (401, 403):
                     client_id = await get_valid_client_id(force_refresh=True)
                     continue
 
@@ -374,7 +391,7 @@ async def _resolve_soundcloud_media(webpage_url: str, is_fallback: bool = False)
                                 track_slug = path_parts[1].replace("-", " ")
                                 q = f"{uploader_slug} {track_slug}".strip()
                                 print(f"[SoundCloud Resolve {res.status_code}] Attempting slug search fallback: '{q}'")
-                                fallback_tracks = await _search_soundcloud_api(q, limit=6)
+                                fallback_tracks = await _search_soundcloud_api(q, limit=3)
                                 for alt in fallback_tracks:
                                     alt_url = alt.get("url")
                                     if alt_url and alt_url != webpage_url:
@@ -433,27 +450,22 @@ async def _resolve_soundcloud_media(webpage_url: str, is_fallback: bool = False)
                         except Exception:
                             pass
 
-                    print(f"[SoundCloud Unplayable Track] '{title}' by '{clean_artist}' (policy={track_data.get('policy')}). Searching playable alternative on SoundCloud...")
-                    base_title = re.sub(r'\(.*?\)|\[.*?\]', '', title).strip() if title else ""
-                    raw_queries = [
-                        f"{clean_artist} {title}".strip() if clean_artist and title else "",
-                        f"{clean_artist} {base_title}".strip() if clean_artist and base_title else "",
-                        title,
-                        base_title
-                    ]
-                    queries = list(dict.fromkeys([q for q in raw_queries if q]))
-                    for q in queries:
-                        fallback_tracks = await _search_soundcloud_api(q, limit=8)
-                        for alt in fallback_tracks:
-                            alt_url = alt.get("url")
-                            if alt_url and alt_url != webpage_url:
-                                alt_media = await _resolve_soundcloud_media(alt_url, is_fallback=True)
-                                if alt_media:
-                                    print(f"[SoundCloud Fallback Success] Using '{alt.get('title')}' -> {alt_url}")
-                                    return alt_media
+                    q = f"{clean_artist} {title}".strip() if clean_artist and title else title
+                    if not q:
+                        return None
+
+                    print(f"[SoundCloud Unplayable Track] '{title}' by '{clean_artist}' (policy={track_data.get('policy')}). Searching fallback alternative: '{q}'...")
+                    fallback_tracks = await _search_soundcloud_api(q, limit=4)
+                    for alt in fallback_tracks:
+                        alt_url = alt.get("url")
+                        if alt_url and alt_url != webpage_url:
+                            alt_media = await _resolve_soundcloud_media(alt_url, is_fallback=True)
+                            if alt_media:
+                                print(f"[SoundCloud Fallback Success] Using '{alt.get('title')}' -> {alt_url}")
+                                return alt_media
                     return None
 
-                # If no unencrypted streams exist on this track link (empty transcodings, policy BLOCK, or DRM FairPlay / Widevine locked):
+                # If no unencrypted streams exist on this track link:
                 if not hls_candidates:
                     fallback_result = await try_fallback_search()
                     if fallback_result:
@@ -492,7 +504,7 @@ async def _resolve_soundcloud_media(webpage_url: str, is_fallback: bool = False)
                                 print(f"[SoundCloud Resolve] Matched stream preset '{cand.get('preset')}' -> {m3u8_url[:60]}...")
                                 return {"type": "hls", "url": m3u8_url}
                     except Exception as stream_err:
-                        print(f"[SoundCloud Resolve Cand Error]: {stream_err}")
+                        print(f"[SoundCloud Resolve Cand Error]: {type(stream_err).__name__}: {stream_err}")
 
                 # If all candidates failed to provide a valid m3u8 URL, try search fallback
                 fallback_result = await try_fallback_search()
@@ -500,7 +512,7 @@ async def _resolve_soundcloud_media(webpage_url: str, is_fallback: bool = False)
                     return fallback_result
 
             except Exception as e:
-                print(f"[SoundCloud Resolve Error]: {e}")
+                print(f"[SoundCloud Resolve Error]: {type(e).__name__}: {e}")
 
     return None
 
@@ -508,8 +520,9 @@ async def _resolve_soundcloud_media(webpage_url: str, is_fallback: bool = False)
 async def _download_progressive_mp3(direct_url: str, target_path: str) -> bool:
     """Directly streams pre-encoded MP3 from SoundCloud CDN to disk."""
     temp_path = os.path.join(CACHE_DIR, f"{os.path.basename(target_path)}.temp.mp3")
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
     try:
-        async with httpx.AsyncClient(timeout=35.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(timeout=25.0, follow_redirects=True, headers=headers) as client:
             async with client.stream("GET", direct_url) as resp:
                 if resp.status_code == 200:
                     with open(temp_path, "wb") as f:
@@ -520,7 +533,7 @@ async def _download_progressive_mp3(direct_url: str, target_path: str) -> bool:
                         print(f"[Progressive Download Success] -> {target_path} ({os.path.getsize(target_path)} bytes)")
                         return True
     except Exception as e:
-        print(f"[Progressive Download Error]: {e}")
+        print(f"[Progressive Download Error]: {type(e).__name__}: {e}")
     finally:
         if os.path.exists(temp_path):
             try:
@@ -533,23 +546,46 @@ async def _download_progressive_mp3(direct_url: str, target_path: str) -> bool:
 def _transcode_hls_to_mp3_sync(m3u8_url: str, target_mp3_path: str) -> bool:
     """
     Uses FFmpeg on the server to convert SoundCloud HLS stream to clean 192k MP3.
-    Explicitly provides -f mp3 and valid .mp3 extension to prevent 'Unable to find suitable output format'.
-    Uses keep-alive persistent HTTP and 60s timeout to prevent premature timeouts on heavy tracks.
+    Uses auto-reconnect flags, thread bounding (threads=2), and 25s timeout to prevent hanging.
     """
     temp_path = os.path.join(CACHE_DIR, f"{os.path.basename(target_mp3_path)}.temp.mp3")
 
     attempts = [
-        # Attempt 1: Fast direct stream copy (works if HLS stream contains MP3 segments - 1 sec runtime!)
-        ["ffmpeg", "-y", "-loglevel", "error", "-user_agent", "Mozilla/5.0", "-http_persistent", "1", "-threads", "0", "-i", m3u8_url, "-vn", "-c:a", "copy", "-f", "mp3", temp_path],
-        # Attempt 2: libmp3lame with keep-alive HTTP and multi-threading
-        ["ffmpeg", "-y", "-loglevel", "error", "-user_agent", "Mozilla/5.0", "-http_persistent", "1", "-threads", "0", "-i", m3u8_url, "-vn", "-c:a", "libmp3lame", "-b:a", "192k", "-f", "mp3", temp_path],
-        # Attempt 3: built-in mp3 encoder
-        ["ffmpeg", "-y", "-loglevel", "error", "-user_agent", "Mozilla/5.0", "-http_persistent", "1", "-threads", "0", "-i", m3u8_url, "-vn", "-c:a", "mp3", "-b:a", "192k", "-f", "mp3", temp_path],
+        # Attempt 1: Standard libmp3lame with auto-reconnect and bounded threads
+        [
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "-reconnect", "1",
+            "-reconnect_streamed", "1",
+            "-reconnect_delay_max", "2",
+            "-threads", "2",
+            "-i", m3u8_url,
+            "-vn",
+            "-c:a", "libmp3lame",
+            "-b:a", "192k",
+            "-f", "mp3",
+            temp_path
+        ],
+        # Attempt 2: built-in mp3 encoder as fallback
+        [
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "-reconnect", "1",
+            "-reconnect_streamed", "1",
+            "-reconnect_delay_max", "2",
+            "-threads", "2",
+            "-i", m3u8_url,
+            "-vn",
+            "-c:a", "mp3",
+            "-b:a", "192k",
+            "-f", "mp3",
+            temp_path
+        ],
     ]
 
     for i, cmd in enumerate(attempts, 1):
         try:
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=25)
             if res.returncode == 0 and os.path.exists(temp_path) and os.path.getsize(temp_path) > 10000:
                 os.replace(temp_path, target_mp3_path)
                 print(f"[FFmpeg Transcode Success (attempt {i})] -> {target_mp3_path} ({os.path.getsize(target_mp3_path)} bytes)")
@@ -560,7 +596,7 @@ def _transcode_hls_to_mp3_sync(m3u8_url: str, target_mp3_path: str) -> bool:
                 if any(x in err_msg.lower() for x in ["403", "forbidden", "unauthorized", "key", "encryption", "crypto"]):
                     break
         except subprocess.TimeoutExpired:
-            print(f"[FFmpeg Attempt {i} Timeout]: Exceeded 60s limit")
+            print(f"[FFmpeg Attempt {i} Timeout]: Exceeded 25s limit")
         except Exception as e:
             print(f"[FFmpeg Attempt {i} Exception]: {e}")
         finally:
@@ -595,9 +631,10 @@ async def _get_or_download_track(url: str, track_hash: str) -> Optional[str]:
         if success and os.path.exists(target_mp3):
             return target_mp3
 
-    # 3. If HLS, transcode with server FFmpeg
+    # 3. If HLS, transcode with server FFmpeg (concurrency limited to 2 processes)
     m3u8_url = media_info["url"]
-    success = await asyncio.to_thread(_transcode_hls_to_mp3_sync, m3u8_url, target_mp3)
+    async with TRANSCODE_SEMAPHORE:
+        success = await asyncio.to_thread(_transcode_hls_to_mp3_sync, m3u8_url, target_mp3)
     if success and os.path.exists(target_mp3):
         return target_mp3
 
@@ -730,22 +767,30 @@ async def proxy_cover(request: Request, url: str = Query(...)):
         return Response(status_code=200, headers={"Content-Type": "image/jpeg", "Accept-Ranges": "bytes"})
 
     decoded_url = urllib.parse.unquote(url)
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+    async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
         try:
             res = await client.get(
                 decoded_url,
-                headers={"User-Agent": "Mozilla/5.0"},
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
             )
-            return Response(
-                content=res.content,
-                media_type=res.headers.get("Content-Type", "image/jpeg"),
-                headers={
-                    "Cache-Control": "public, max-age=86400",
-                    "Access-Control-Allow-Origin": "*",
-                },
-            )
-        except Exception:
-            raise HTTPException(status_code=404, detail="Cover not found")
+            if res.status_code == 200:
+                return Response(
+                    content=res.content,
+                    media_type=res.headers.get("Content-Type", "image/jpeg"),
+                    headers={
+                        "Cache-Control": "public, max-age=86400",
+                        "Access-Control-Allow-Origin": "*",
+                    },
+                )
+        except Exception as e:
+            print(f"[Cover Proxy Error]: {type(e).__name__}: {e}")
+
+    # Fallback to default music artwork instead of 404 to keep UI clean
+    return RedirectResponse(
+        url="https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=500",
+        status_code=307,
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
 
 
 # ---------------------------------------------------------------------------
