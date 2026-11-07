@@ -1,4 +1,5 @@
 import SwiftUI
+import PhotosUI
 
 public struct ProfileAndSettingsView: View {
     @ObservedObject var repo = MusicRepository.shared
@@ -11,6 +12,7 @@ public struct ProfileAndSettingsView: View {
     @State private var cacheSizeMb: Double = 0.0
     @State private var isSyncingNow: Bool = false
     @State private var toastMessage: String? = nil
+    @State private var selectedPhotoItem: PhotosPickerItem? = nil
 
     private let audioOptions = [
         ("Высокое (320 kbps)", "Максимальное качество звука без сжатия"),
@@ -58,7 +60,7 @@ public struct ProfileAndSettingsView: View {
                 .padding(.bottom, 16)
 
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 18) {
+                    VStack(spacing: 16) {
                         // User Profile Hero Card (Matching Android AuthScreen.kt)
                         HStack(spacing: 16) {
                             if !repo.user.avatarUrl.isEmpty {
@@ -113,7 +115,48 @@ public struct ProfileAndSettingsView: View {
                         )
                         .clipShape(RoundedRectangle(cornerRadius: 22))
 
-                        // Change Name Button
+                        // Upload Avatar from Gallery Button (Exact Android AuthScreen.kt)
+                        PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                            HStack(spacing: 8) {
+                                Image(systemName: "camera.fill")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(theme.currentTheme.light)
+                                Text("Загрузить своё фото из галереи")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(.textPrimary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 48)
+                            .background(Color.darkSurfaceVariant)
+                            .clipShape(RoundedRectangle(cornerRadius: 14))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14)
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [theme.currentTheme.primary, theme.currentTheme.light],
+                                            startPoint: .leading,
+                                            endPoint: .trailing
+                                        ),
+                                        lineWidth: 1.5
+                                    )
+                            )
+                        }
+                        .onChange(of: selectedPhotoItem) { newItem in
+                            Task {
+                                if let data = try? await newItem?.loadTransferable(type: Data.self) {
+                                    let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+                                    let avatarURL = documents.appendingPathComponent("avatar_\(Int(Date().timeIntervalSince1970)).jpg")
+                                    try? data.write(to: avatarURL)
+                                    await MainActor.run {
+                                        repo.user.avatarUrl = avatarURL.absoluteString
+                                        repo.saveToStorage()
+                                        showToast("Фото профиля обновлено")
+                                    }
+                                }
+                            }
+                        }
+
+                        // Change Name / Logout Buttons
                         HStack(spacing: 10) {
                             Button(action: {
                                 newNameInput = repo.user.name
@@ -162,7 +205,7 @@ public struct ProfileAndSettingsView: View {
 
                         // Settings Card
                         VStack(spacing: 16) {
-                            // 1. Theme Color Selection
+                            // 1. Theme Color Selection (lowercase titles, no word wrap)
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Цветовая тема")
@@ -176,8 +219,8 @@ public struct ProfileAndSettingsView: View {
                                 Spacer()
 
                                 HStack(spacing: 8) {
-                                    themePill(mode: .violet, name: "Фиолетовый", color: Color(hex: 0x8B5CF6))
-                                    themePill(mode: .yellow, name: "Жёлтый", color: Color(hex: 0xFACC15))
+                                    themePill(mode: .violet, name: "фиолетовый", color: Color(hex: 0x8B5CF6))
+                                    themePill(mode: .yellow, name: "жёлтый", color: Color(hex: 0xFACC15))
                                 }
                             }
 
@@ -223,8 +266,8 @@ public struct ProfileAndSettingsView: View {
                                 Spacer()
 
                                 Toggle("", isOn: $repo.isCachingEnabled)
-                                .labelsHidden()
-                                .tint(theme.currentTheme.primary)
+                                    .labelsHidden()
+                                    .tint(theme.currentTheme.primary)
                             }
 
                             if cacheSizeMb > 0.05 {
@@ -244,16 +287,18 @@ public struct ProfileAndSettingsView: View {
 
                             Divider().background(Color.darkBorder)
 
-                            // 4. Cloudify v7.9 Brand Card
+                            // 4. Cloudify v7.9 Brand Card with smaller clean borders
                             HStack(spacing: 12) {
                                 ZStack {
-                                    RoundedRectangle(cornerRadius: 12)
+                                    RoundedRectangle(cornerRadius: 10)
                                         .fill(theme.currentTheme == .yellow ? Color(hex: 0x1E1A0E) : Color(hex: 0x13101E))
-                                        .frame(width: 46, height: 46)
+                                        .frame(width: 44, height: 44)
 
                                     Image(uiImage: UIImage(named: theme.currentTheme.logoImageName) ?? UIImage())
                                         .resizable()
-                                        .frame(width: 34, height: 34)
+                                        .aspectRatio(contentMode: .fit)
+                                        .frame(width: 40, height: 40)
+                                        .clipShape(RoundedRectangle(cornerRadius: 8))
                                 }
 
                                 VStack(alignment: .leading, spacing: 2) {
@@ -261,14 +306,14 @@ public struct ProfileAndSettingsView: View {
                                         .font(.system(size: 15, weight: .bold))
                                         .foregroundColor(.textPrimary)
 
-                                    Text(theme.currentTheme == .yellow ? "Иконка: Жёлтая" : "Иконка: Фиолетовая")
+                                    Text(theme.currentTheme == .yellow ? "Иконка: жёлтая" : "Иконка: фиолетовая")
                                         .font(.system(size: 12))
                                         .foregroundColor(theme.currentTheme.light)
                                 }
 
                                 Spacer()
 
-                                Text(theme.currentTheme == .yellow ? "Жёлтая" : "Фиолетовая")
+                                Text(theme.currentTheme == .yellow ? "жёлтая" : "фиолетовая")
                                     .font(.system(size: 11, weight: .bold))
                                     .foregroundColor(theme.currentTheme.primary)
                                     .padding(.horizontal, 8)
@@ -362,6 +407,7 @@ public struct ProfileAndSettingsView: View {
                         Spacer(minLength: 40)
                     }
                     .padding(.horizontal, 16)
+                    .padding(.top, 10)
                 }
             }
 
@@ -370,13 +416,13 @@ public struct ProfileAndSettingsView: View {
                 VStack {
                     Spacer()
                     Text(toast)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.white)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                        .background(Color.darkSurfaceVariant)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(Color(hex: 0x1F2937).opacity(0.95))
                         .clipShape(Capsule())
-                        .overlay(Capsule().stroke(theme.currentTheme.primary, lineWidth: 1))
+                        .shadow(radius: 8)
                         .padding(.bottom, 30)
                 }
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -416,21 +462,23 @@ public struct ProfileAndSettingsView: View {
         return Button(action: {
             theme.setTheme(mode)
         }) {
-            HStack(spacing: 6) {
+            HStack(spacing: 5) {
                 Circle()
                     .fill(color)
-                    .frame(width: 10, height: 10)
+                    .frame(width: 8, height: 8)
                 Text(name)
                     .font(.system(size: 12, weight: isSelected ? .bold : .regular))
                     .foregroundColor(isSelected ? .textPrimary : .textSecondary)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
             }
             .padding(.horizontal, 10)
-            .padding(.vertical, 6)
+            .padding(.vertical, 7)
             .background(isSelected ? color.opacity(0.2) : Color.darkSurface)
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(isSelected ? color : Color.darkBorder, lineWidth: 1)
+                    .stroke(isSelected ? color : Color.darkBorder, lineWidth: isSelected ? 1.5 : 1)
             )
         }
     }

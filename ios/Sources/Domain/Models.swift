@@ -186,8 +186,6 @@ public struct MonthlyStats: Codable, Equatable {
     public var topTrackArtwork: String
     public var topTrackPlays: Int
     public var hoursListened: Double
-    public var topGenre: String
-    public var genrePercent: Int
 
     public init(
         monthName: String = "",
@@ -196,9 +194,7 @@ public struct MonthlyStats: Codable, Equatable {
         topTrack: String = "Включайте треки",
         topTrackArtwork: String = "",
         topTrackPlays: Int = 0,
-        hoursListened: Double = 0.0,
-        topGenre: String = "Определяется",
-        genrePercent: Int = 0
+        hoursListened: Double = 0.0
     ) {
         self.monthName = monthName
         self.topArtist = topArtist
@@ -207,8 +203,20 @@ public struct MonthlyStats: Codable, Equatable {
         self.topTrackArtwork = topTrackArtwork
         self.topTrackPlays = topTrackPlays
         self.hoursListened = hoursListened
-        self.topGenre = topGenre
-        self.genrePercent = genrePercent
+    }
+}
+
+public struct ArtistRelease: Identifiable, Codable, Equatable, Hashable {
+    public let id: String
+    public let artistName: String
+    public let artistArtwork: String
+    public let track: Track
+
+    public init(id: String, artistName: String, artistArtwork: String, track: Track) {
+        self.id = id
+        self.artistName = artistName
+        self.artistArtwork = artistArtwork
+        self.track = track
     }
 }
 

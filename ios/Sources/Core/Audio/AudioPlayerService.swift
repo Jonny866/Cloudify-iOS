@@ -26,6 +26,7 @@ public final class AudioPlayerService: NSObject, ObservableObject {
     @Published public var isShuffle: Bool = false
     @Published public var repeatMode: RepeatMode = .off
     @Published public var sleepTimerMinutes: Int? = nil
+    @Published public var currentSource: String = "Любимые треки"
 
     private var sleepTimer: Timer?
     private var originalQueue: [Track] = []
@@ -94,7 +95,8 @@ public final class AudioPlayerService: NSObject, ObservableObject {
     }
 
     // Playback Controls
-    public func playTrack(_ track: Track, in queue: [Track]? = nil) {
+    public func playTrack(_ track: Track, in queue: [Track]? = nil, source: String = "Любимые треки") {
+        self.currentSource = source
         if let newQueue = queue, !newQueue.isEmpty {
             self.originalQueue = newQueue
             self.queue = isShuffle ? newQueue.shuffled() : newQueue
@@ -123,7 +125,17 @@ public final class AudioPlayerService: NSObject, ObservableObject {
 
         MusicRepository.shared.addRecentTrack(track)
 
-        guard let url = URL(string: track.streamUrl) else {
+        let playbackURL: URL?
+        if let localPath = track.localFilePath, FileManager.default.fileExists(atPath: localPath) {
+            playbackURL = URL(fileURLWithPath: localPath)
+        } else if let cached = MusicRepository.shared.downloadedTracks.first(where: { $0.id == track.id }),
+                  let path = cached.localFilePath, FileManager.default.fileExists(atPath: path) {
+            playbackURL = URL(fileURLWithPath: path)
+        } else {
+            playbackURL = URL(string: track.streamUrl)
+        }
+
+        guard let url = playbackURL else {
             isBuffering = false
             return
         }

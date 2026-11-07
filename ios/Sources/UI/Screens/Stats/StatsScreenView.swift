@@ -88,16 +88,6 @@ public struct StatsScreenView: View {
                     imageUrl: stats.topTrackArtwork.isEmpty ? nil : stats.topTrackArtwork
                 )
 
-                // Top Genre Card (Matching Android StatsScreen.kt)
-                statDetailCard(
-                    title: "ЛЮБИМЫЙ ЖАНР",
-                    value: stats.topGenre,
-                    subtitle: stats.genrePercent > 0 ? "\(stats.genrePercent)% прослушанных треков" : "Формируется по мере прослушивания",
-                    icon: "flame.fill",
-                    iconColor: theme.currentTheme == .yellow ? Color(hex: 0xFACC15) : .accentPink,
-                    imageUrl: nil
-                )
-
                 Spacer(minLength: 120)
             }
         }

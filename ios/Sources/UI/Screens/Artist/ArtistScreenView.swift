@@ -3,6 +3,7 @@ import SwiftUI
 public struct ArtistScreenView: View {
     public let artistName: String
     public let onBack: () -> Void
+    public var onOpenFullPlayer: (() -> Void)? = nil
 
     @ObservedObject var repo = MusicRepository.shared
     @ObservedObject var player = AudioPlayerService.shared
@@ -71,6 +72,15 @@ public struct ArtistScreenView: View {
                 .padding(.top, 50)
 
                 Spacer()
+            }
+
+            // Docked Mini Player at bottom if track is playing
+            VStack {
+                Spacer()
+                MiniPlayerView(onOpenFullPlayer: {
+                    onOpenFullPlayer?()
+                })
+                .padding(.bottom, 12)
             }
         }
         .task {

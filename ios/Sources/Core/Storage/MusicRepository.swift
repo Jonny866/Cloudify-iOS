@@ -27,6 +27,11 @@ public final class MusicRepository: ObservableObject {
     private var artistsFileURL: URL { documentsURL.appendingPathComponent("artists.json") }
     private var userFileURL: URL { documentsURL.appendingPathComponent("user.json") }
     private var recentsFileURL: URL { documentsURL.appendingPathComponent("recents.json") }
+    private var downloadsFileURL: URL { documentsURL.appendingPathComponent("downloads.json") }
+
+    @Published public var isImportCompleted: Bool = UserDefaults.standard.bool(forKey: "cloudify_import_completed") {
+        didSet { UserDefaults.standard.set(isImportCompleted, forKey: "cloudify_import_completed") }
+    }
 
     private func loadFromStorage() {
         let decoder = JSONDecoder()
@@ -56,6 +61,25 @@ public final class MusicRepository: ObservableObject {
            let saved = try? decoder.decode([Track].self, from: data) {
             self.recentTracks = saved
         }
+
+        if let data = try? Data(contentsOf: downloadsFileURL),
+           let saved = try? decoder.decode([Track].self, from: data) {
+            let verified = saved.filter { track in
+                guard let path = track.localFilePath, !path.isEmpty else { return false }
+                return FileManager.default.fileExists(atPath: path)
+            }
+            self.downloadedTracks = verified
+            self.downloadedIds = Set(verified.map { $0.id })
+        }
+
+        // Sync isDownloaded flag with favorites
+        for i in 0..<self.favorites.count {
+            if self.downloadedIds.contains(self.favorites[i].id) {
+                self.favorites[i].isDownloaded = true
+                let safeName = "track_\(self.favorites[i].id.replacingOccurrences(of: "[^a-zA-Z0-9_]", with: "_", options: .regularExpression)).mp3"
+                self.favorites[i].localFilePath = documentsURL.appendingPathComponent("Downloads").appendingPathComponent(safeName).path
+            }
+        }
     }
 
     public func saveToStorage() {
@@ -67,6 +91,7 @@ public final class MusicRepository: ObservableObject {
         try? (try? encoder.encode(Array(favoriteArtists)))?.write(to: artistsFileURL)
         try? (try? encoder.encode(user))?.write(to: userFileURL)
         try? (try? encoder.encode(recentTracks))?.write(to: recentsFileURL)
+        try? (try? encoder.encode(downloadedTracks))?.write(to: downloadsFileURL)
     }
 
     // Favorites
@@ -106,48 +131,91 @@ public final class MusicRepository: ObservableObject {
     }
 
     public func getPopularArtists() -> [Artist] {
-        return [
-            Artist(
-                id: "a_dabbackwood",
-                name: "dabbackwood",
-                artworkUrl: CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/avatars-zmVG9KSLGIaTyCxA-schJmA-t500x500.jpg"),
-                genre: "Hip-Hop / Rap",
-                monthlyListeners: "215 тыс. слушателей",
-                isFavorite: favoriteArtists.contains("dabbackwood")
-            ),
-            Artist(
-                id: "a_gone",
-                name: "GONE.Fludd",
-                artworkUrl: CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/avatars-qcDcKZDyCbj8ykiQ-FEOkHA-t500x500.jpg"),
-                genre: "Hip-Hop / Rap",
-                monthlyListeners: "839.6 тыс. слушателей",
-                isFavorite: favoriteArtists.contains("GONE.Fludd")
-            ),
-            Artist(
-                id: "a_miyagi",
-                name: "Miyagi & Эндшпиль",
-                artworkUrl: CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/avatars-zK5Rj5tpjLZYizRW-a6bEXA-t500x500.jpg"),
-                genre: "Hip-Hop",
-                monthlyListeners: "3.8M слушателей",
-                isFavorite: favoriteArtists.contains("Miyagi & Эндшпиль")
-            ),
-            Artist(
-                id: "a_kordhell",
-                name: "KORDHELL",
-                artworkUrl: CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/avatars-IwkAewk5iACtjj7t-mjkT9g-t500x500.jpg"),
-                genre: "Phonk",
-                monthlyListeners: "4.2M слушателей",
-                isFavorite: favoriteArtists.contains("KORDHELL")
-            ),
-            Artist(
-                id: "a_dvrst",
-                name: "DVRST",
-                artworkUrl: CloudifyAPI.getCoverUrl(originalThumbnailUrl: "https://i1.sndcdn.com/avatars-91G3KMdmclZj1XN2-blvgeQ-t500x500.jpg"),
-                genre: "Drift Phonk",
-                monthlyListeners: "2.9M слушателей",
-                isFavorite: favoriteArtists.contains("DVRST")
+        var list: [Artist] = []
+        var seenArtists = Set<String>()
+
+        // 1. Gather artists from user's favorites & listening history (Personalized, NO hardcoded mocks)
+        let candidateTracks = favorites + recentTracks
+        for track in candidateTracks {
+            let artistName = track.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !artistName.isEmpty, !seenArtists.contains(artistName.lowercased()) else { continue }
+            seenArtists.insert(artistName.lowercased())
+
+            list.append(
+                Artist(
+                    id: "artist_\(abs(artistName.hashValue))",
+                    name: artistName,
+                    artworkUrl: track.artworkUrl,
+                    genre: "Исполнитель",
+                    monthlyListeners: "Популярно у вас",
+                    isFavorite: favoriteArtists.contains(artistName)
+                )
             )
-        ]
+            if list.count >= 8 { break }
+        }
+
+        // 2. Favorite artist names if not already included
+        for favArtist in favoriteArtists {
+            guard !seenArtists.contains(favArtist.lowercased()) else { continue }
+            seenArtists.insert(favArtist.lowercased())
+            list.append(
+                Artist(
+                    id: "artist_\(abs(favArtist.hashValue))",
+                    name: favArtist,
+                    artworkUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=300",
+                    genre: "Исполнитель",
+                    monthlyListeners: "В избранном",
+                    isFavorite: true
+                )
+            )
+            if list.count >= 10 { break }
+        }
+
+        return list
+    }
+
+    public func getFavoriteReleases() async -> [ArtistRelease] {
+        var releases: [ArtistRelease] = []
+        var candidateNames: [String] = []
+
+        if !favoriteArtists.isEmpty {
+            candidateNames = Array(favoriteArtists)
+        } else {
+            var seen = Set<String>()
+            for t in favorites + recentTracks {
+                let name = t.artist.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !name.isEmpty && !seen.contains(name.lowercased()) {
+                    seen.insert(name.lowercased())
+                    candidateNames.append(name)
+                    if candidateNames.count >= 5 { break }
+                }
+            }
+        }
+
+        for artistName in candidateNames {
+            if let favTrack = favorites.first(where: { $0.artist.caseInsensitiveCompare(artistName) == .orderedSame }) {
+                releases.append(ArtistRelease(
+                    id: "rel_\(favTrack.id)",
+                    artistName: artistName,
+                    artistArtwork: favTrack.artworkUrl,
+                    track: favTrack
+                ))
+            } else {
+                do {
+                    let tracks = try await CloudifyAPI.shared.searchTracks(query: artistName)
+                    if let first = tracks.first {
+                        releases.append(ArtistRelease(
+                            id: "rel_\(first.id)",
+                            artistName: artistName,
+                            artistArtwork: first.artworkUrl,
+                            track: first
+                        ))
+                    }
+                } catch {}
+            }
+        }
+
+        return releases
     }
 
     // Playlists
@@ -199,17 +267,30 @@ public final class MusicRepository: ObservableObject {
 
     // Downloads
     public func downloadTrack(_ track: Track) {
-        guard !downloadedIds.contains(track.id) else { return }
-        guard let url = URL(string: track.streamUrl) else { return }
-
         let destDir = documentsURL.appendingPathComponent("Downloads", isDirectory: true)
         try? FileManager.default.createDirectory(at: destDir, withIntermediateDirectories: true)
 
         let safeName = "track_\(track.id.replacingOccurrences(of: "[^a-zA-Z0-9_]", with: "_", options: .regularExpression)).mp3"
         let destURL = destDir.appendingPathComponent(safeName)
 
-        URLSession.shared.downloadTask(with: url) { [weak self] tempURL, _, error in
-            guard let self = self, let tempURL = tempURL, error == nil else { return }
+        if FileManager.default.fileExists(atPath: destURL.path) {
+            DispatchQueue.main.async {
+                self.markTrackAsDownloaded(track, localPath: destURL.path)
+            }
+            return
+        }
+
+        guard let url = URL(string: track.streamUrl) else { return }
+
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 45
+        let session = URLSession(configuration: config)
+
+        session.downloadTask(with: url) { [weak self] tempURL, _, error in
+            guard let self = self, let tempURL = tempURL, error == nil else {
+                print("Download task error: \(String(describing: error))")
+                return
+            }
             do {
                 if FileManager.default.fileExists(atPath: destURL.path) {
                     try FileManager.default.removeItem(at: destURL)
@@ -217,17 +298,33 @@ public final class MusicRepository: ObservableObject {
                 try FileManager.default.moveItem(at: tempURL, to: destURL)
 
                 DispatchQueue.main.async {
-                    var downloaded = track
-                    downloaded.isDownloaded = true
-                    downloaded.localFilePath = destURL.path
-                    downloaded.streamUrl = destURL.absoluteString
-                    self.downloadedTracks.append(downloaded)
-                    self.downloadedIds.insert(track.id)
+                    self.markTrackAsDownloaded(track, localPath: destURL.path)
                 }
             } catch {
-                print("Download failed: \(error)")
+                print("Save downloaded track failed: \(error)")
             }
         }.resume()
+    }
+
+    private func markTrackAsDownloaded(_ track: Track, localPath: String) {
+        var downloaded = track
+        downloaded.isDownloaded = true
+        downloaded.localFilePath = localPath
+        downloaded.streamUrl = URL(fileURLWithPath: localPath).absoluteString
+
+        if let idx = self.downloadedTracks.firstIndex(where: { $0.id == track.id }) {
+            self.downloadedTracks[idx] = downloaded
+        } else {
+            self.downloadedTracks.append(downloaded)
+        }
+        self.downloadedIds.insert(track.id)
+
+        if let favIdx = self.favorites.firstIndex(where: { $0.id == track.id }) {
+            self.favorites[favIdx].isDownloaded = true
+            self.favorites[favIdx].localFilePath = localPath
+        }
+
+        self.saveToStorage()
     }
 
     public func getCacheSizeMb() -> Double {
@@ -250,6 +347,11 @@ public final class MusicRepository: ObservableObject {
         try? FileManager.default.removeItem(at: destDir)
         downloadedTracks.removeAll()
         downloadedIds.removeAll()
+        for i in 0..<favorites.count {
+            favorites[i].isDownloaded = false
+            favorites[i].localFilePath = nil
+        }
+        saveToStorage()
     }
 
     // Cloud Sync
@@ -408,9 +510,7 @@ public final class MusicRepository: ObservableObject {
                 topTrack: "Включайте треки",
                 topTrackArtwork: "",
                 topTrackPlays: 0,
-                hoursListened: hoursListened,
-                topGenre: "Определяется",
-                genrePercent: 0
+                hoursListened: hoursListened
             )
         }
 
@@ -448,16 +548,6 @@ public final class MusicRepository: ObservableObject {
         let topTrackArtwork = topTrackMatch?.artworkUrl ?? ""
         let topTrackPlays = topTrackEntry?.value ?? 1
 
-        // Group by genre
-        var genreCounts: [String: Int] = [:]
-        for track in recentTracks {
-            let g = track.genre.isEmpty ? "Hip-Hop / Phonk" : track.genre
-            genreCounts[g, default: 0] += 1
-        }
-        let topGenreEntry = genreCounts.max(by: { $0.value < $1.value })
-        let topGenre = topGenreEntry?.key ?? "Hip-Hop / Phonk"
-        let genrePercent = totalPlays > 0 ? ((topGenreEntry?.value ?? 0) * 100 / totalPlays) : 100
-
         return MonthlyStats(
             monthName: currentMonthName,
             topArtist: topArtist,
@@ -465,9 +555,7 @@ public final class MusicRepository: ObservableObject {
             topTrack: topTrackTitle,
             topTrackArtwork: topTrackArtwork,
             topTrackPlays: topTrackPlays,
-            hoursListened: hoursListened,
-            topGenre: topGenre,
-            genrePercent: genrePercent
+            hoursListened: hoursListened
         )
     }
 
@@ -507,6 +595,7 @@ public final class MusicRepository: ObservableObject {
         }
 
         await MainActor.run {
+            self.isImportCompleted = true
             self.saveToStorage()
         }
         if user.isLoggedIn {

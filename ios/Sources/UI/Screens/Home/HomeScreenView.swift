@@ -10,6 +10,8 @@ public struct HomeScreenView: View {
 
     @State private var selectedFilter: String = "Все"
     @State private var popularForYou: [Track] = []
+    @State private var favoriteReleases: [ArtistRelease] = []
+    @State private var currentReleaseIndex: Int = 0
     @State private var actionTrack: Track? = nil
     @State private var isLoadingInitial: Bool = false
 
@@ -35,15 +37,6 @@ public struct HomeScreenView: View {
 
     private var popularArtists: [Artist] {
         repo.getPopularArtists()
-    }
-
-    private var featuredRelease: Track? {
-        if !repo.favoriteArtists.isEmpty {
-            if let favTrack = repo.favorites.first(where: { repo.favoriteArtists.contains($0.artist) }) {
-                return favTrack
-            }
-        }
-        return repo.favorites.first
     }
 
     // Quick Access items (up to 8 items, 1st is Liked Songs)
@@ -265,113 +258,34 @@ public struct HomeScreenView: View {
         .padding(.horizontal, 16)
     }
 
-    // Featured Release Card / Dynamic Placeholder (Matching Android 7.9)
+    // Featured Release Card / Dynamic Placeholder (Matching Android 7.9 HorizontalPager)
     private var featuredReleaseCard: some View {
         Group {
-            if let release = featuredRelease {
-                VStack(alignment: .leading, spacing: 10) {
-                    // Header with artist avatar
-                    Button(action: {
-                        onArtistClick(release.artist)
-                    }) {
-                        HStack(spacing: 10) {
-                            AsyncImage(url: URL(string: release.artworkUrl)) { img in
-                                img.resizable().aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Color.darkSurfaceVariant
-                            }
-                            .frame(width: 46, height: 46)
-                            .clipShape(Circle())
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("Новый релиз исполнителя")
-                                    .font(.system(size: 12))
-                                    .foregroundColor(.textMuted)
-
-                                Text(release.artist)
-                                    .font(.system(size: 20, weight: .bold))
-                                    .foregroundColor(.textPrimary)
-                            }
+            if favoriteReleases.count > 1 {
+                VStack(spacing: 8) {
+                    TabView(selection: $currentReleaseIndex) {
+                        ForEach(Array(favoriteReleases.enumerated()), id: \.element.id) { index, rel in
+                            singleReleaseCard(rel: rel)
+                                .tag(index)
                         }
                     }
-                    .padding(.horizontal, 16)
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .frame(height: 200)
 
-                    // Split Big Card
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.darkSurfaceVariant)
-
-                        HStack(spacing: 14) {
-                            AsyncImage(url: URL(string: release.artworkUrl)) { img in
-                                img.resizable().aspectRatio(contentMode: .fill)
-                            } placeholder: {
-                                Color.darkSurface
-                            }
-                            .frame(width: 130, height: 130)
-                            .clipped()
-                            .clipShape(RoundedRectangle(cornerRadius: 12))
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Сингл")
-                                    .font(.system(size: 11))
-                                    .foregroundColor(.textMuted)
-
-                                Text(release.title)
-                                    .font(.system(size: 17, weight: .bold))
-                                    .foregroundColor(.textPrimary)
-                                    .lineLimit(1)
-
-                                Text(release.artist)
-                                    .font(.system(size: 13))
-                                    .foregroundColor(.textSecondary)
-                                    .lineLimit(1)
-
-                                Spacer()
-
-                                HStack {
-                                    Button(action: {
-                                        actionTrack = release
-                                    }) {
-                                        Image(systemName: "ellipsis")
-                                            .font(.system(size: 16))
-                                            .foregroundColor(.textSecondary)
-                                            .frame(width: 32, height: 32)
-                                    }
-
-                                    Spacer()
-
-                                    Button(action: {
-                                        repo.toggleFavorite(release)
-                                    }) {
-                                        Image(systemName: repo.isFavorite(release.id) ? "heart.fill" : "heart")
-                                            .font(.system(size: 20))
-                                            .foregroundColor(repo.isFavorite(release.id) ? .accentPink : .textSecondary)
-                                            .frame(width: 32, height: 32)
-                                    }
-
-                                    Button(action: {
-                                        player.playTrack(release, in: [release])
-                                    }) {
-                                        ZStack {
-                                            Circle()
-                                                .fill(theme.currentTheme.primary)
-                                                .frame(width: 42, height: 42)
-
-                                            Image(systemName: (player.currentTrack?.id == release.id && player.isPlaying) ? "pause.fill" : "play.fill")
-                                                .font(.system(size: 18))
-                                                .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
-                                                .offset(x: (player.currentTrack?.id == release.id && player.isPlaying) ? 0 : 2)
-                                        }
-                                    }
-                                }
-                            }
-                            .padding(.vertical, 12)
-                            .padding(.trailing, 14)
+                    // Page indicator dots (exact Android HomeScreen.kt)
+                    HStack(spacing: 6) {
+                        ForEach(0..<favoriteReleases.count, id: \.self) { idx in
+                            Circle()
+                                .fill(currentReleaseIndex == idx ? theme.currentTheme.primary : Color.gray.opacity(0.4))
+                                .frame(width: currentReleaseIndex == idx ? 8 : 5, height: currentReleaseIndex == idx ? 8 : 5)
+                                .animation(.easeInOut(duration: 0.2), value: currentReleaseIndex)
                         }
                     }
-                    .frame(height: 130)
-                    .padding(.horizontal, 16)
                 }
+            } else if let single = favoriteReleases.first {
+                singleReleaseCard(rel: single)
+            } else if let fav = repo.favorites.first {
+                singleReleaseCard(rel: ArtistRelease(id: fav.id, artistName: fav.artist, artistArtwork: fav.artworkUrl, track: fav))
             } else {
                 // Exact Android 7.9 empty placeholder card
                 VStack(alignment: .leading, spacing: 6) {
@@ -401,6 +315,114 @@ public struct HomeScreenView: View {
                 .padding(.horizontal, 16)
             }
         }
+    }
+
+    private func singleReleaseCard(rel: ArtistRelease) -> some View {
+        let release = rel.track
+        return VStack(alignment: .leading, spacing: 10) {
+            // Header with artist avatar
+            Button(action: {
+                onArtistClick(rel.artistName)
+            }) {
+                HStack(spacing: 10) {
+                    AsyncImage(url: URL(string: rel.artistArtwork.isEmpty ? release.artworkUrl : rel.artistArtwork)) { img in
+                        img.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Color.darkSurfaceVariant
+                    }
+                    .frame(width: 46, height: 46)
+                    .clipShape(Circle())
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Новый релиз исполнителя")
+                            .font(.system(size: 12))
+                            .foregroundColor(.textMuted)
+
+                        Text(rel.artistName)
+                            .font(.system(size: 20, weight: .bold))
+                            .foregroundColor(.textPrimary)
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+
+            // Split Big Card
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.darkSurfaceVariant)
+
+                HStack(spacing: 14) {
+                    AsyncImage(url: URL(string: release.artworkUrl)) { img in
+                        img.resizable().aspectRatio(contentMode: .fill)
+                    } placeholder: {
+                        Color.darkSurface
+                    }
+                    .frame(width: 130, height: 130)
+                    .clipped()
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Сингл")
+                            .font(.system(size: 11))
+                            .foregroundColor(.textMuted)
+
+                        Text(release.title)
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundColor(.textPrimary)
+                            .lineLimit(1)
+
+                        Text(release.artist)
+                            .font(.system(size: 13))
+                            .foregroundColor(.textSecondary)
+                            .lineLimit(1)
+
+                        Spacer()
+
+                        HStack {
+                            Button(action: {
+                                actionTrack = release
+                            }) {
+                                Image(systemName: "ellipsis")
+                                    .font(.system(size: 16))
+                                    .foregroundColor(.textSecondary)
+                                    .frame(width: 32, height: 32)
+                            }
+
+                            Spacer()
+
+                            Button(action: {
+                                repo.toggleFavorite(release)
+                            }) {
+                                Image(systemName: repo.isFavorite(release.id) ? "heart.fill" : "heart")
+                                    .font(.system(size: 20))
+                                    .foregroundColor(repo.isFavorite(release.id) ? .accentPink : .textSecondary)
+                                    .frame(width: 32, height: 32)
+                            }
+
+                            Button(action: {
+                                player.playTrack(release, in: [release], source: "Новый релиз: \(rel.artistName)")
+                            }) {
+                                ZStack {
+                                    Circle()
+                                        .fill(theme.currentTheme.primary)
+                                        .frame(width: 42, height: 42)
+
+                                    Image(systemName: (player.currentTrack?.id == release.id && player.isPlaying) ? "pause.fill" : "play.fill")
+                                        .font(.system(size: 18))
+                                        .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
+                                        .offset(x: (player.currentTrack?.id == release.id && player.isPlaying) ? 0 : 2)
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical, 12)
+                    .padding(.trailing, 14)
+                }
+            }
+            .frame(height: 130)
+            .padding(.horizontal, 16)
+        }
+    }
     }
 
     // "Недавно прослушанные треки"
@@ -529,8 +551,13 @@ public struct HomeScreenView: View {
         guard !isLoadingInitial else { return }
         isLoadingInitial = true
 
+        let releases = await repo.getFavoriteReleases()
+        await MainActor.run {
+            self.favoriteReleases = releases
+        }
+
         do {
-            let popular = try await CloudifyAPI.shared.searchTracks(query: "GONE.Fludd Miyagi phonk hits")
+            let popular = try await CloudifyAPI.shared.searchTracks(query: "phonk rap top music hits")
             await MainActor.run {
                 self.popularForYou = popular
                 self.isLoadingInitial = false

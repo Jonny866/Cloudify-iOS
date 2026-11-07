@@ -165,18 +165,38 @@ public struct LibraryScreenView: View {
         }
         .fileImporter(
             isPresented: $showFileImporter,
-            allowedContentTypes: [.plainText, .text],
+            allowedContentTypes: [
+                UTType.text,
+                UTType.plainText,
+                UTType.utf8PlainText,
+                UTType.item,
+                UTType.data,
+                UTType(filenameExtension: "txt")
+            ].compactMap { $0 },
             allowsMultipleSelection: false
         ) { result in
             switch result {
             case .success(let urls):
                 guard let url = urls.first else { return }
-                if url.startAccessingSecurityScopedResource() {
-                    defer { url.stopAccessingSecurityScopedResource() }
-                    if let text = try? String(contentsOf: url, encoding: .utf8) {
-                        Task {
-                            isImporting = true
-                            let res = await repo.importTracksFromText(text)
+                let canAccess = url.startAccessingSecurityScopedResource()
+                defer {
+                    if canAccess { url.stopAccessingSecurityScopedResource() }
+                }
+
+                var textContent: String?
+                if let str = try? String(contentsOf: url, encoding: .utf8) {
+                    textContent = str
+                } else if let data = try? Data(contentsOf: url) {
+                    textContent = String(data: data, encoding: .utf8)
+                        ?? String(data: data, encoding: .windowsCP1251)
+                        ?? String(data: data, encoding: .ascii)
+                }
+
+                if let text = textContent, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Task {
+                        await MainActor.run { isImporting = true }
+                        let res = await repo.importTracksFromText(text)
+                        await MainActor.run {
                             isImporting = false
                             importResultText = "Импортировано \(res.imported) из \(res.total) треков"
                         }
@@ -246,31 +266,33 @@ public struct LibraryScreenView: View {
                     }
                 }
 
-                Button(action: {
-                    showFileImporter = true
-                }) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "square.and.arrow.down")
-                            .font(.system(size: 13))
-                        Text("Импорт .txt")
-                            .font(.system(size: 12, weight: .semibold))
-                            .lineLimit(1)
+                if !repo.isImportCompleted {
+                    Button(action: {
+                        showFileImporter = true
+                    }) {
+                        HStack(spacing: 6) {
+                            Image(systemName: "square.and.arrow.down")
+                                .font(.system(size: 13))
+                            Text("Импорт .txt")
+                                .font(.system(size: 12, weight: .semibold))
+                                .lineLimit(1)
+                        }
+                        .foregroundColor(theme.currentTheme.light)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Color.darkSurfaceVariant)
+                        .clipShape(Capsule())
+                        .overlay(
+                            Capsule().stroke(theme.currentTheme.light.opacity(0.3), lineWidth: 1)
+                        )
                     }
-                    .foregroundColor(theme.currentTheme.light)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 8)
-                    .background(Color.darkSurfaceVariant)
-                    .clipShape(Capsule())
-                    .overlay(
-                        Capsule().stroke(theme.currentTheme.light.opacity(0.3), lineWidth: 1)
-                    )
                 }
 
                 if !repo.favorites.isEmpty {
                     Button(action: {
                         let shuffled = repo.favorites.shuffled()
                         if let first = shuffled.first {
-                            player.playTrack(first, in: shuffled)
+                            player.playTrack(first, in: shuffled, source: "Любимые треки")
                         }
                     }) {
                         HStack(spacing: 6) {
@@ -338,7 +360,7 @@ public struct LibraryScreenView: View {
                         isFavorite: true,
                         isDownloaded: repo.downloadedIds.contains(track.id),
                         onPlay: {
-                            player.playTrack(track, in: sortedFavorites)
+                            player.playTrack(track, in: sortedFavorites, source: "Любимые треки")
                         },
                         onFavoriteToggle: {
                             repo.toggleFavorite(track)

@@ -10,11 +10,15 @@ public struct SearchScreenView: View {
     @State private var query: String = ""
     @State private var searchResults: [Track] = []
     @State private var isSearching: Bool = false
-    @State private var searchHistory: [String] = ["GONE.Fludd", "Miyagi", "KORDHELL", "Phonk"]
+    @State private var searchHistory: [String] = []
     @State private var actionTrack: Track? = nil
     @State private var searchTask: Task<Void, Never>? = nil
 
     private let genres = ["Хип-хоп", "Фонк", "Дрифт", "Рок", "Электроника", "Поп", "Рэп", "Лоу-фай"]
+
+    private var popularArtists: [Artist] {
+        repo.getPopularArtists()
+    }
 
     public var body: some View {
         VStack(spacing: 14) {
@@ -102,7 +106,47 @@ public struct SearchScreenView: View {
                             }
                         }
 
-                        // Genres & Categories
+                        // Popular Artists Carousel (Matching Android SearchScreen.kt)
+                        if !popularArtists.isEmpty {
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Популярные исполнители")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundColor(.textPrimary)
+
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 16) {
+                                        ForEach(popularArtists) { artist in
+                                            Button(action: {
+                                                onArtistClick(artist.name)
+                                            }) {
+                                                VStack(spacing: 6) {
+                                                    AsyncImage(url: URL(string: artist.artworkUrl)) { img in
+                                                        img.resizable().aspectRatio(contentMode: .fill)
+                                                    } placeholder: {
+                                                        Color.darkSurfaceVariant
+                                                    }
+                                                    .frame(width: 86, height: 86)
+                                                    .clipShape(Circle())
+                                                    .overlay(Circle().stroke(Color.white.opacity(0.08), lineWidth: 1))
+
+                                                    Text(artist.name)
+                                                        .font(.system(size: 12, weight: .bold))
+                                                        .foregroundColor(.textPrimary)
+                                                        .lineLimit(1)
+
+                                                    Text("Исполнитель")
+                                                        .font(.system(size: 10))
+                                                        .foregroundColor(.textSecondary)
+                                                }
+                                                .frame(width: 90)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Genres & Categories (Centered text matching Android)
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Популярные жанры")
                                 .font(.system(size: 18, weight: .bold))
@@ -114,16 +158,16 @@ public struct SearchScreenView: View {
                                         query = genre
                                         performSearch(genre)
                                     }) {
-                                        ZStack(alignment: .bottomLeading) {
-                                            RoundedRectangle(cornerRadius: 10)
+                                        ZStack(alignment: .leading) {
+                                            RoundedRectangle(cornerRadius: 12)
                                                 .fill(Color.darkSurfaceVariant)
 
                                             Text(genre)
                                                 .font(.system(size: 15, weight: .bold))
                                                 .foregroundColor(.textPrimary)
-                                                .padding(14)
+                                                .padding(.horizontal, 16)
                                         }
-                                        .frame(height: 70)
+                                        .frame(height: 60)
                                     }
                                 }
                             }
@@ -172,7 +216,7 @@ public struct SearchScreenView: View {
                                     isPlaying: player.isPlaying,
                                     isFavorite: repo.isFavorite(track.id),
                                     onPlay: {
-                                        player.playTrack(track, in: searchResults)
+                                        player.playTrack(track, in: searchResults, source: "Поиск")
                                         repo.addRecentTrack(track)
                                         if !searchHistory.contains(query) {
                                             searchHistory.insert(query, at: 0)

@@ -100,9 +100,10 @@ public struct FullPlayerView: View {
                     .tracking(1.2)
                     .foregroundColor(theme.currentTheme.light)
 
-                Text(track.genre)
+                Text(player.currentSource.isEmpty ? "Любимые треки" : player.currentSource)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundColor(.textPrimary)
+                    .lineLimit(1)
             }
 
             Spacer()
@@ -278,18 +279,19 @@ public struct FullPlayerView: View {
 
             Spacer()
 
+            let isDownloaded = repo.downloadedIds.contains(track.id)
             Button(action: {
-                showLyricsSheet = true
+                repo.downloadTrack(track)
             }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "quote.bubble.fill")
-                        .font(.system(size: 14))
-                    Text("Текст")
+                HStack(spacing: 6) {
+                    Image(systemName: isDownloaded ? "checkmark.circle.fill" : "arrow.down.circle.fill")
+                        .font(.system(size: 15))
+                    Text(isDownloaded ? "Скачано" : "Скачать")
                         .font(.system(size: 13, weight: .bold))
                 }
-                .foregroundColor(.textPrimary)
+                .foregroundColor(isDownloaded ? .accentGreen : theme.currentTheme.light)
                 .padding(.horizontal, 14)
-                .padding(.vertical, 6)
+                .padding(.vertical, 7)
                 .background(Color.darkSurfaceVariant)
                 .clipShape(Capsule())
             }
