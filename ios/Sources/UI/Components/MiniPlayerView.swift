@@ -19,13 +19,8 @@ public struct MiniPlayerView: View {
                 // Main Mini Player Bar
                 HStack(spacing: 8) {
                     // Track Thumbnail
-                    AsyncImage(url: URL(string: track.artworkUrl)) { image in
-                        image.resizable().aspectRatio(contentMode: .fill)
-                    } placeholder: {
-                        Color(hex: 0x2E2642)
-                    }
-                    .frame(width: 42, height: 42)
-                    .clipShape(RoundedRectangle(cornerRadius: 9))
+                    CachedArtworkView(urlString: track.artworkUrl, localPath: track.localArtworkPath, cornerRadius: 9)
+                        .frame(width: 42, height: 42)
 
                     // Title & Artist
                     VStack(alignment: .leading, spacing: 2) {

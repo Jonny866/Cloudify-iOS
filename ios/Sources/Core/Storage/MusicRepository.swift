@@ -103,11 +103,16 @@ public final class MusicRepository: ObservableObject {
             self.downloadedIds = Set(verified.map { $0.id })
         }
 
-        // Sync isDownloaded flag with favorites
+        // Sync isDownloaded flag and local artwork with favorites
         for i in 0..<self.favorites.count {
+            let safeId = self.favorites[i].id.replacingOccurrences(of: "[^a-zA-Z0-9_]", with: "_", options: .regularExpression)
+            let artPath = documentsURL.appendingPathComponent("Downloads").appendingPathComponent("art_\(safeId).jpg").path
+            if FileManager.default.fileExists(atPath: artPath) {
+                self.favorites[i].localArtworkPath = artPath
+            }
             if self.downloadedIds.contains(self.favorites[i].id) {
                 self.favorites[i].isDownloaded = true
-                let safeName = "track_\(self.favorites[i].id.replacingOccurrences(of: "[^a-zA-Z0-9_]", with: "_", options: .regularExpression)).mp3"
+                let safeName = "track_\(safeId).mp3"
                 self.favorites[i].localFilePath = documentsURL.appendingPathComponent("Downloads").appendingPathComponent(safeName).path
             }
         }
@@ -516,8 +521,21 @@ public final class MusicRepository: ObservableObject {
             if fileData.count > 10000 {
                 try fileData.write(to: destURL, options: .atomic)
 
+                // Download and cache artwork alongside the track
+                var localArtPath: String? = nil
+                let safeArtName = "art_\(safeId).jpg"
+                let artDestURL = downloadsURL.appendingPathComponent(safeArtName)
+                if !track.artworkUrl.isEmpty {
+                    if let artURL = URL(string: track.artworkUrl),
+                       let (artData, _) = try? await URLSession.shared.data(from: artURL),
+                       artData.count > 500 {
+                        ArtworkCacheManager.shared.saveDownloadedArtwork(data: artData, urlString: track.artworkUrl, targetURL: artDestURL)
+                        localArtPath = artDestURL.path
+                    }
+                }
+
                 await MainActor.run {
-                    self.markTrackAsDownloaded(track, localPath: destURL.path)
+                    self.markTrackAsDownloaded(track, localPath: destURL.path, localArtPath: localArtPath)
                     _ = self.activeDownloads.remove(track.id)
                     self.downloadProgress[track.id] = 1.0
                     self.currentBatchCompleted += 1
@@ -538,10 +556,13 @@ public final class MusicRepository: ObservableObject {
         }
     }
 
-    private func markTrackAsDownloaded(_ track: Track, localPath: String) {
+    private func markTrackAsDownloaded(_ track: Track, localPath: String, localArtPath: String? = nil) {
         var downloaded = track
         downloaded.isDownloaded = true
         downloaded.localFilePath = localPath
+        if let art = localArtPath {
+            downloaded.localArtworkPath = art
+        }
         downloaded.streamUrl = URL(fileURLWithPath: localPath).absoluteString
 
         if let idx = self.downloadedTracks.firstIndex(where: { $0.id == track.id }) {
@@ -555,6 +576,9 @@ public final class MusicRepository: ObservableObject {
             if self.favorites[i].id == track.id {
                 self.favorites[i].isDownloaded = true
                 self.favorites[i].localFilePath = localPath
+                if let art = localArtPath {
+                    self.favorites[i].localArtworkPath = art
+                }
             }
         }
 
@@ -562,6 +586,9 @@ public final class MusicRepository: ObservableObject {
             if self.recentTracks[i].id == track.id {
                 self.recentTracks[i].isDownloaded = true
                 self.recentTracks[i].localFilePath = localPath
+                if let art = localArtPath {
+                    self.recentTracks[i].localArtworkPath = art
+                }
             }
         }
 
@@ -591,7 +618,14 @@ public final class MusicRepository: ObservableObject {
         for i in 0..<favorites.count {
             favorites[i].isDownloaded = false
             favorites[i].localFilePath = nil
+            favorites[i].localArtworkPath = nil
         }
+        for i in 0..<recentTracks.count {
+            recentTracks[i].isDownloaded = false
+            recentTracks[i].localFilePath = nil
+            recentTracks[i].localArtworkPath = nil
+        }
+        ArtworkCacheManager.shared.clearAllCache()
         saveToStorage()
     }
 

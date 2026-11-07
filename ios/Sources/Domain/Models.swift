@@ -13,6 +13,7 @@ public struct Track: Identifiable, Codable, Equatable, Hashable {
     public var isFavorite: Bool
     public var isDownloaded: Bool
     public var localFilePath: String?
+    public var localArtworkPath: String?
 
     public init(
         id: String,
@@ -26,7 +27,8 @@ public struct Track: Identifiable, Codable, Equatable, Hashable {
         lyrics: String = "Текст трека доступен в плеере...",
         isFavorite: Bool = false,
         isDownloaded: Bool = false,
-        localFilePath: String? = nil
+        localFilePath: String? = nil,
+        localArtworkPath: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -40,6 +42,7 @@ public struct Track: Identifiable, Codable, Equatable, Hashable {
         self.isFavorite = isFavorite
         self.isDownloaded = isDownloaded
         self.localFilePath = localFilePath
+        self.localArtworkPath = localArtworkPath
     }
 
     public var durationFormatted: String {

@@ -209,16 +209,11 @@ public struct FullPlayerView: View {
 
     // Big Cover Artwork
     private func artworkView(track: Track) -> some View {
-        AsyncImage(url: URL(string: track.artworkUrl)) { img in
-            img.resizable().aspectRatio(contentMode: .fill)
-        } placeholder: {
-            Color.darkSurface
-        }
-        .frame(maxWidth: .infinity)
-        .aspectRatio(1.0, contentMode: .fit)
-        .clipShape(RoundedRectangle(cornerRadius: 18))
-        .shadow(color: theme.currentTheme.primary.opacity(0.18), radius: 24, y: 12)
-        .shadow(color: Color.black.opacity(0.6), radius: 14, y: 8)
+        CachedArtworkView(urlString: track.artworkUrl, localPath: track.localArtworkPath, cornerRadius: 18)
+            .frame(maxWidth: .infinity)
+            .aspectRatio(1.0, contentMode: .fit)
+            .shadow(color: theme.currentTheme.primary.opacity(0.18), radius: 24, y: 12)
+            .shadow(color: Color.black.opacity(0.6), radius: 14, y: 8)
     }
 
     // Track Meta

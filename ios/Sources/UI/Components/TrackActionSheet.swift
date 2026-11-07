@@ -21,13 +21,8 @@ public struct TrackActionSheet: View {
 
             // Header: Cover + Info
             HStack(spacing: 14) {
-                AsyncImage(url: URL(string: track.artworkUrl)) { image in
-                    image.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Color.darkSurface
-                }
-                .frame(width: 54, height: 54)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
+                CachedArtworkView(urlString: track.artworkUrl, localPath: track.localArtworkPath, cornerRadius: 10)
+                    .frame(width: 54, height: 54)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(track.title)

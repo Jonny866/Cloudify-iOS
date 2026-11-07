@@ -39,13 +39,8 @@ public struct TrackRowView: View {
         HStack(spacing: 12) {
             // Artwork
             ZStack(alignment: .center) {
-                AsyncImage(url: URL(string: track.artworkUrl)) { image in
-                    image.resizable().aspectRatio(contentMode: .fill)
-                } placeholder: {
-                    Color.darkSurface
-                }
-                .frame(width: 48, height: 48)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
+                CachedArtworkView(urlString: track.artworkUrl, localPath: track.localArtworkPath, cornerRadius: 8)
+                    .frame(width: 48, height: 48)
 
                 if isCurrent && isPlaying {
                     RoundedRectangle(cornerRadius: 8)
