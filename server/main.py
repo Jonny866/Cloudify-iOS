@@ -507,6 +507,7 @@ async def _resolve_soundcloud_media(webpage_url: str, is_fallback: bool = False)
                 if track_auth:
                     params["track_authorization"] = track_auth
 
+                resolved_hls = []
                 for cand in hls_candidates:
                     endpoint = cand.get("url")
                     if not endpoint:
@@ -516,16 +517,22 @@ async def _resolve_soundcloud_media(webpage_url: str, is_fallback: bool = False)
                         if stream_res.status_code == 200:
                             m3u8_url = stream_res.json().get("url")
                             if m3u8_url:
-                                print(f"[SoundCloud Resolve] Matched stream preset '{cand.get('preset')}' -> {m3u8_url[:60]}...")
-                                return {
-                                    "type": "hls",
-                                    "url": m3u8_url,
-                                    "title": title,
-                                    "artist": clean_artist,
-                                    "duration_sec": duration_sec
-                                }
+                                resolved_hls.append((cand.get("preset", "hls"), m3u8_url))
                     except Exception as stream_err:
                         print(f"[SoundCloud Resolve Cand Error]: {type(stream_err).__name__}: {stream_err}")
+
+                if resolved_hls:
+                    primary_preset, primary_url = resolved_hls[0]
+                    backup_urls = [u for _, u in resolved_hls[1:]]
+                    print(f"[SoundCloud Resolve] Matched stream preset '{primary_preset}' (+{len(backup_urls)} backups) -> {primary_url[:60]}...")
+                    return {
+                        "type": "hls",
+                        "url": primary_url,
+                        "backup_urls": backup_urls,
+                        "title": title,
+                        "artist": clean_artist,
+                        "duration_sec": duration_sec
+                    }
 
                 # If all candidates failed to provide a valid m3u8 URL, try search fallback
                 fallback_result = await try_fallback_search()
@@ -570,12 +577,12 @@ async def _download_progressive_mp3(direct_url: str, target_path: str) -> bool:
 def _transcode_hls_to_mp3_sync(m3u8_url: str, target_mp3_path: str, timeout_sec: int = 70) -> bool:
     """
     Uses FFmpeg on the server to convert SoundCloud HLS stream to clean 192k MP3.
-    Uses auto-reconnect flags, referer headers, thread bounding (threads=2), and dynamic timeout.
+    Uses auto-reconnect flags, referer headers, thread bounding (threads=2), single audio stream mapping (-map 0:a:0), and dynamic timeout.
     """
     temp_path = os.path.join(CACHE_DIR, f"{os.path.basename(target_mp3_path)}.temp.mp3")
 
     attempts = [
-        # Attempt 1: Standard libmp3lame with auto-reconnect and bounded threads
+        # Attempt 1: Standard libmp3lame with auto-reconnect, bounded threads, and strict single audio stream selection
         [
             "ffmpeg", "-y", "-loglevel", "error",
             "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
@@ -585,9 +592,14 @@ def _transcode_hls_to_mp3_sync(m3u8_url: str, target_mp3_path: str, timeout_sec:
             "-reconnect_delay_max", "2",
             "-threads", "2",
             "-i", m3u8_url,
+            "-map", "0:a:0",
             "-vn",
+            "-sn",
+            "-dn",
+            "-map_metadata", "-1",
             "-c:a", "libmp3lame",
             "-b:a", "192k",
+            "-id3v2_version", "3",
             "-f", "mp3",
             temp_path
         ],
@@ -601,9 +613,32 @@ def _transcode_hls_to_mp3_sync(m3u8_url: str, target_mp3_path: str, timeout_sec:
             "-reconnect_delay_max", "2",
             "-threads", "2",
             "-i", m3u8_url,
+            "-map", "0:a:0",
             "-vn",
+            "-sn",
+            "-dn",
+            "-map_metadata", "-1",
             "-c:a", "mp3",
             "-b:a", "192k",
+            "-id3v2_version", "3",
+            "-f", "mp3",
+            temp_path
+        ],
+        # Attempt 3: libmp3lame VBR without bit-reservoir constraints
+        [
+            "ffmpeg", "-y", "-loglevel", "error",
+            "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "-headers", "Referer: https://soundcloud.com/\r\n",
+            "-threads", "2",
+            "-i", m3u8_url,
+            "-map", "0:a:0",
+            "-vn",
+            "-sn",
+            "-dn",
+            "-map_metadata", "-1",
+            "-c:a", "libmp3lame",
+            "-q:a", "2",
+            "-id3v2_version", "3",
             "-f", "mp3",
             temp_path
         ],
@@ -659,13 +694,18 @@ async def _get_or_download_track(url: str, track_hash: str) -> Optional[str]:
 
     # 3. If HLS, transcode with server FFmpeg (concurrency limited to 2 processes)
     m3u8_url = media_info["url"]
+    backup_urls = media_info.get("backup_urls") or []
     duration_sec = media_info.get("duration_sec", 180)
     timeout_sec = max(60, min(180, int(duration_sec * 0.25) + 35))
 
-    async with TRANSCODE_SEMAPHORE:
-        success = await asyncio.to_thread(_transcode_hls_to_mp3_sync, m3u8_url, target_mp3, timeout_sec)
-    if success and os.path.exists(target_mp3):
-        return target_mp3
+    all_urls_to_try = [m3u8_url] + backup_urls
+    for try_idx, candidate_m3u8 in enumerate(all_urls_to_try):
+        async with TRANSCODE_SEMAPHORE:
+            success = await asyncio.to_thread(_transcode_hls_to_mp3_sync, candidate_m3u8, target_mp3, timeout_sec)
+        if success and os.path.exists(target_mp3):
+            return target_mp3
+        if try_idx < len(all_urls_to_try) - 1:
+            print(f"[Stream Retry] Preset #{try_idx + 1} failed, trying backup HLS preset #{try_idx + 2}...")
 
     # 4. If primary upload failed or timed out, automatically search alternative upload of the same song
     title = media_info.get("title", "")
