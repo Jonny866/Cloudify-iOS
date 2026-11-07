@@ -366,7 +366,11 @@ public final class MusicRepository: ObservableObject {
     public func downloadAllTracks(_ tracks: [Track]) {
         requestNotificationPermission()
 
-        let toDownload = tracks.filter { !downloadedIds.contains($0.id) && !activeDownloads.contains($0.id) && !downloadQueue.contains(where: { q in q.id == $0.id }) }
+        let toDownload = tracks.filter { track in
+            !downloadedIds.contains(track.id) &&
+            !activeDownloads.contains(track.id) &&
+            !downloadQueue.contains(where: { q in q.id == track.id })
+        }
 
         if toDownload.isEmpty {
             showDownloadToast("Все треки уже скачаны")
