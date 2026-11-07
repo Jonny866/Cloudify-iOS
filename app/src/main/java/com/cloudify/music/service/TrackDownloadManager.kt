@@ -115,6 +115,29 @@ class TrackDownloadManager(
             (track.localFilePath != null && File(track.localFilePath).exists()) ||
             track.streamUrl.startsWith("file:", ignoreCase = true)
         ) {
+            scope.launch {
+                val musicDir = appContext.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
+                    ?: File(appContext.filesDir, "downloads")
+                val safeId = track.id.replace(Regex("[^a-zA-Z0-9_]"), "_")
+                val targetArtFile = File(musicDir, "cloudify_art_${safeId}.jpg")
+                if ((!targetArtFile.exists() || targetArtFile.length() < 200) && track.artworkUrl.isNotBlank()) {
+                    try {
+                        val artRequest = Request.Builder()
+                            .url(track.artworkUrl)
+                            .addHeader("User-Agent", "CloudifyApp/1.0")
+                            .build()
+                        val artResponse = client.newCall(artRequest).execute()
+                        if (artResponse.isSuccessful && artResponse.body != null) {
+                            val artBytes = artResponse.body!!.bytes()
+                            if (artBytes.size > 200) {
+                                targetArtFile.writeBytes(artBytes)
+                                val audioFile = File(musicDir, "cloudify_${safeId}.mp3")
+                                musicRepository.saveDownloadedTrack(track, audioFile.absolutePath, targetArtFile.absolutePath)
+                            }
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
             Toast.makeText(appContext, "Трек «${track.title}» уже сохранён в памяти", Toast.LENGTH_SHORT).show()
             return
         }
@@ -201,8 +224,31 @@ class TrackDownloadManager(
                         }
                     }
 
+                    // Download and cache artwork alongside the track
+                    var localArtPath: String? = null
+                    val safeId = track.id.replace(Regex("[^a-zA-Z0-9_]"), "_")
+                    val targetArtFile = File(musicDir, "cloudify_art_${safeId}.jpg")
+                    if (track.artworkUrl.isNotBlank()) {
+                        try {
+                            val artRequest = Request.Builder()
+                                .url(track.artworkUrl)
+                                .addHeader("User-Agent", "CloudifyApp/1.0")
+                                .build()
+                            val artResponse = client.newCall(artRequest).execute()
+                            if (artResponse.isSuccessful && artResponse.body != null) {
+                                val artBytes = artResponse.body!!.bytes()
+                                if (artBytes.size > 200) {
+                                    targetArtFile.writeBytes(artBytes)
+                                    localArtPath = targetArtFile.absolutePath
+                                }
+                            }
+                        } catch (_: Exception) {
+                            // Non-blocking: failure to download artwork does not fail track download
+                        }
+                    }
+
                     // Save record to Room
-                    musicRepository.saveDownloadedTrack(track, targetFile.absolutePath)
+                    musicRepository.saveDownloadedTrack(track, targetFile.absolutePath, localArtPath)
 
                     // Success notification with final size
                     val finalMb = targetFile.length().toDouble() / (1024 * 1024)
@@ -316,7 +362,30 @@ class TrackDownloadManager(
                             }
                         }
 
-                        musicRepository.saveDownloadedTrack(track, targetFile.absolutePath)
+                        // Download artwork alongside the track
+                        var localArtPath: String? = null
+                        val safeId = track.id.replace(Regex("[^a-zA-Z0-9_]"), "_")
+                        val targetArtFile = File(musicDir, "cloudify_art_${safeId}.jpg")
+                        if (track.artworkUrl.isNotBlank() && (!targetArtFile.exists() || targetArtFile.length() < 200)) {
+                            try {
+                                val artRequest = Request.Builder()
+                                    .url(track.artworkUrl)
+                                    .addHeader("User-Agent", "CloudifyApp/1.0")
+                                    .build()
+                                val artResponse = client.newCall(artRequest).execute()
+                                if (artResponse.isSuccessful && artResponse.body != null) {
+                                    val artBytes = artResponse.body!!.bytes()
+                                    if (artBytes.size > 200) {
+                                        targetArtFile.writeBytes(artBytes)
+                                        localArtPath = targetArtFile.absolutePath
+                                    }
+                                }
+                            } catch (_: Exception) {}
+                        } else if (targetArtFile.exists() && targetArtFile.length() > 200) {
+                            localArtPath = targetArtFile.absolutePath
+                        }
+
+                        musicRepository.saveDownloadedTrack(track, targetFile.absolutePath, localArtPath)
                         downloadedCount++
                     }
                 } catch (_: Exception) {
@@ -400,6 +469,14 @@ class TrackDownloadManager(
 
     fun deleteDownloadedTrack(trackId: String) {
         scope.launch {
+            val musicDir = appContext.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
+                ?: File(appContext.filesDir, "downloads")
+            val safeId = trackId.replace(Regex("[^a-zA-Z0-9_]"), "_")
+            val audioFile = File(musicDir, "cloudify_${safeId}.mp3")
+            val artFile = File(musicDir, "cloudify_art_${safeId}.jpg")
+            if (audioFile.exists()) audioFile.delete()
+            if (artFile.exists()) artFile.delete()
+
             musicRepository.removeDownloadedTrack(trackId)
             withContext(Dispatchers.Main) {
                 Toast.makeText(appContext, "Трек удален из памяти", Toast.LENGTH_SHORT).show()

@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import com.cloudify.music.core.util.CloudSyncManager
+import android.os.Environment
 import java.io.File
 import java.util.Calendar
 
@@ -178,9 +179,18 @@ class MusicRepositoryImpl(
 
     override fun getDownloadedTracks(): Flow<List<Track>> {
         return dao.getAllDownloadedTracks().map { entities ->
+            val musicDir = context?.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
+                ?: context?.filesDir?.resolve("downloads")
             entities.map { entity ->
                 val localFile = File(entity.localFilePath)
-                val playUrl = if (localFile.exists()) localFile.toURI().toString() else entity.artworkUrl
+                val playUrl = if (localFile.exists()) localFile.toURI().toString() else entity.localFilePath
+                val safeId = entity.id.replace(Regex("[^a-zA-Z0-9_]"), "_")
+                val diskArtFile = if (musicDir != null) File(musicDir, "cloudify_art_${safeId}.jpg") else null
+                val resolvedArtPath = when {
+                    !entity.localArtworkPath.isNullOrBlank() && File(entity.localArtworkPath).exists() -> entity.localArtworkPath
+                    diskArtFile != null && diskArtFile.exists() && diskArtFile.length() > 200 -> diskArtFile.absolutePath
+                    else -> null
+                }
                 Track(
                     id = entity.id,
                     title = entity.title,
@@ -190,14 +200,25 @@ class MusicRepositoryImpl(
                     durationMs = entity.durationMs,
                     isDownloaded = true,
                     localFilePath = entity.localFilePath,
+                    localArtworkPath = resolvedArtPath,
                     genre = entity.genre
                 )
             }
         }
     }
 
-    override suspend fun saveDownloadedTrack(track: Track, localFilePath: String) {
+    override suspend fun saveDownloadedTrack(track: Track, localFilePath: String, localArtworkPath: String?) {
         _downloadedIds.value = _downloadedIds.value + track.id
+        val musicDir = context?.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
+            ?: context?.filesDir?.resolve("downloads")
+        val safeId = track.id.replace(Regex("[^a-zA-Z0-9_]"), "_")
+        val diskArtFile = if (musicDir != null) File(musicDir, "cloudify_art_${safeId}.jpg") else null
+        val resolvedArt = when {
+            !localArtworkPath.isNullOrBlank() && File(localArtworkPath).exists() -> localArtworkPath
+            !track.localArtworkPath.isNullOrBlank() && File(track.localArtworkPath).exists() -> track.localArtworkPath
+            diskArtFile != null && diskArtFile.exists() && diskArtFile.length() > 200 -> diskArtFile.absolutePath
+            else -> null
+        }
         dao.insertDownloadedTrack(
             DownloadedTrackEntity(
                 id = track.id,
@@ -205,6 +226,7 @@ class MusicRepositoryImpl(
                 artist = track.artist,
                 artworkUrl = track.artworkUrl,
                 localFilePath = localFilePath,
+                localArtworkPath = resolvedArt,
                 durationMs = track.durationMs,
                 genre = track.genre
             )
@@ -214,6 +236,15 @@ class MusicRepositoryImpl(
     override suspend fun removeDownloadedTrack(trackId: String) {
         _downloadedIds.value = _downloadedIds.value - trackId
         dao.deleteDownloadedTrack(trackId)
+        val musicDir = context?.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
+            ?: context?.filesDir?.resolve("downloads")
+        if (musicDir != null) {
+            val safeId = trackId.replace(Regex("[^a-zA-Z0-9_]"), "_")
+            val audioFile = File(musicDir, "cloudify_${safeId}.mp3")
+            val artFile = File(musicDir, "cloudify_art_${safeId}.jpg")
+            if (audioFile.exists()) audioFile.delete()
+            if (artFile.exists()) artFile.delete()
+        }
     }
 
     override suspend fun search(query: String): List<Track> {
@@ -339,15 +370,30 @@ class MusicRepositoryImpl(
 
     override fun getFavoriteTracks(): Flow<List<Track>> {
         return dao.getAllFavorites().map { entities ->
+            val musicDir = context?.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
+                ?: context?.filesDir?.resolve("downloads")
             entities.map { entity ->
+                val safeId = entity.id.replace(Regex("[^a-zA-Z0-9_]"), "_")
+                val isDown = _downloadedIds.value.contains(entity.id)
+                val diskAudioFile = if (musicDir != null) File(musicDir, "cloudify_${safeId}.mp3") else null
+                val hasLocalAudio = diskAudioFile != null && diskAudioFile.exists() && diskAudioFile.length() > 10000
+                val diskArtFile = if (musicDir != null) File(musicDir, "cloudify_art_${safeId}.jpg") else null
+                val resolvedArt = when {
+                    !entity.localArtworkPath.isNullOrBlank() && File(entity.localArtworkPath).exists() -> entity.localArtworkPath
+                    diskArtFile != null && diskArtFile.exists() && diskArtFile.length() > 200 -> diskArtFile.absolutePath
+                    else -> null
+                }
                 Track(
                     id = entity.id,
                     title = entity.title,
                     artist = entity.artist,
                     artworkUrl = entity.artworkUrl,
-                    streamUrl = entity.streamUrl,
+                    streamUrl = if (hasLocalAudio) diskAudioFile!!.toURI().toString() else entity.streamUrl,
                     durationMs = entity.durationMs,
                     isFavorite = true,
+                    isDownloaded = isDown || hasLocalAudio,
+                    localFilePath = if (hasLocalAudio) diskAudioFile!!.absolutePath else null,
+                    localArtworkPath = resolvedArt,
                     genre = entity.genre,
                     lyrics = entity.lyrics
                 )

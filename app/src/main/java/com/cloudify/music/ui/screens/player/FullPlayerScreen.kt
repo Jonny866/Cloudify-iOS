@@ -196,9 +196,10 @@ fun FullPlayerScreen(
                         }
                     }
                 } else {
+                    val context = LocalContext.current
                     AsyncImage(
-                        model = ImageRequest.Builder(LocalContext.current)
-                            .data(track.artworkUrl)
+                        model = ImageRequest.Builder(context)
+                            .data(track.getDisplayArtwork(context))
                             .crossfade(true)
                             .build(),
                         contentDescription = track.title,

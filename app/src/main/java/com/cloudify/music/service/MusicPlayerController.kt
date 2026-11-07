@@ -5,6 +5,7 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
+import android.os.Environment
 import android.util.Log
 import android.util.LruCache
 import androidx.media3.common.MediaItem
@@ -113,6 +114,34 @@ class MusicPlayerController private constructor(context: Context) {
     private var consecutiveFailures = 0
 
     private val artworkCache = LruCache<String, ByteArray>(50)
+
+    private fun getLocalArtworkFile(track: Track): File? {
+        if (!track.localArtworkPath.isNullOrBlank()) {
+            val f = File(track.localArtworkPath)
+            if (f.exists() && f.length() > 200) return f
+        }
+        val musicDir = applicationContext.getExternalFilesDir(Environment.DIRECTORY_MUSIC)
+            ?: File(applicationContext.filesDir, "downloads")
+        val safeId = track.id.replace(Regex("[^a-zA-Z0-9_]"), "_")
+        val artFile = File(musicDir, "cloudify_art_${safeId}.jpg")
+        return if (artFile.exists() && artFile.length() > 200) artFile else null
+    }
+
+    private fun getTrackArtworkBytes(track: Track): ByteArray? {
+        val cached = artworkCache.get(track.artworkUrl)
+        if (cached != null) return cached
+        val localArt = getLocalArtworkFile(track)
+        if (localArt != null) {
+            try {
+                val bytes = localArt.readBytes()
+                if (bytes.isNotEmpty()) {
+                    artworkCache.put(track.artworkUrl, bytes)
+                    return bytes
+                }
+            } catch (_: Exception) {}
+        }
+        return null
+    }
 
     private fun fetchArtworkBytes(url: String, onDone: (ByteArray) -> Unit) {
         if (url.isBlank()) return
@@ -237,14 +266,17 @@ class MusicPlayerController private constructor(context: Context) {
         )
 
         _progress.value = PlaybackProgress(0L, track.durationMs)
-        val cachedBytes = artworkCache.get(track.artworkUrl)
+        val localArtFile = getLocalArtworkFile(track)
+        val initialArtworkBytes = getTrackArtworkBytes(track)
+        val artworkUri = if (localArtFile != null) Uri.fromFile(localArtFile) else Uri.parse(track.artworkUrl)
+
         val mediaMetadata = MediaMetadata.Builder()
             .setTitle(track.title)
             .setArtist(track.artist)
-            .setArtworkUri(Uri.parse(track.artworkUrl))
+            .setArtworkUri(artworkUri)
             .apply {
-                if (cachedBytes != null) {
-                    setArtworkData(cachedBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                if (initialArtworkBytes != null) {
+                    setArtworkData(initialArtworkBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
                 }
             }
             .build()
@@ -259,21 +291,23 @@ class MusicPlayerController private constructor(context: Context) {
         exoPlayer.setMediaItem(mediaItem)
 
         // Asynchronously fetch artwork if not yet in cache, and update media item so lockscreen & control center display the cover
-        fetchArtworkBytes(track.artworkUrl) { bytes ->
-            if (_state.value.currentTrack?.id == track.id) {
-                try {
-                    val current = exoPlayer.currentMediaItem
-                    if (current != null && current.mediaId == track.id) {
-                        val updatedMeta = current.mediaMetadata.buildUpon()
-                            .setArtworkData(bytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
-                            .build()
-                        val updatedItem = current.buildUpon()
-                            .setMediaMetadata(updatedMeta)
-                            .build()
-                        exoPlayer.replaceMediaItem(exoPlayer.currentMediaItemIndex, updatedItem)
+        if (initialArtworkBytes == null && track.artworkUrl.isNotBlank()) {
+            fetchArtworkBytes(track.artworkUrl) { bytes ->
+                if (_state.value.currentTrack?.id == track.id) {
+                    try {
+                        val current = exoPlayer.currentMediaItem
+                        if (current != null && current.mediaId == track.id) {
+                            val updatedMeta = current.mediaMetadata.buildUpon()
+                                .setArtworkData(bytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                                .build()
+                            val updatedItem = current.buildUpon()
+                                .setMediaMetadata(updatedMeta)
+                                .build()
+                            exoPlayer.replaceMediaItem(exoPlayer.currentMediaItemIndex, updatedItem)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("CloudifyPlayer", "Failed to update artwork on current media item", e)
                     }
-                } catch (e: Exception) {
-                    Log.e("CloudifyPlayer", "Failed to update artwork on current media item", e)
                 }
             }
         }
@@ -283,7 +317,10 @@ class MusicPlayerController private constructor(context: Context) {
         // This ensures the NEXT button is enabled on Android lock screen and notification shade widgets.
         if (newQueue.size > 1) {
             val nextTrack = newQueue[(index + 1) % newQueue.size]
-            val nextCachedBytes = artworkCache.get(nextTrack.artworkUrl)
+            val nextLocalArtFile = getLocalArtworkFile(nextTrack)
+            val nextArtworkBytes = getTrackArtworkBytes(nextTrack)
+            val nextArtworkUri = if (nextLocalArtFile != null) Uri.fromFile(nextLocalArtFile) else Uri.parse(nextTrack.artworkUrl)
+
             val nextItem = MediaItem.Builder()
                 .setMediaId("next_${nextTrack.id}")
                 .setUri(playbackUri)
@@ -291,10 +328,10 @@ class MusicPlayerController private constructor(context: Context) {
                     MediaMetadata.Builder()
                         .setTitle(nextTrack.title)
                         .setArtist(nextTrack.artist)
-                        .setArtworkUri(Uri.parse(nextTrack.artworkUrl))
+                        .setArtworkUri(nextArtworkUri)
                         .apply {
-                            if (nextCachedBytes != null) {
-                                setArtworkData(nextCachedBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
+                            if (nextArtworkBytes != null) {
+                                setArtworkData(nextArtworkBytes, MediaMetadata.PICTURE_TYPE_FRONT_COVER)
                             }
                         }
                         .build()
@@ -302,8 +339,10 @@ class MusicPlayerController private constructor(context: Context) {
                 .build()
             exoPlayer.addMediaItem(nextItem)
 
-            // Pre-warm next track's artwork in memory cache
-            fetchArtworkBytes(nextTrack.artworkUrl) {}
+            // Pre-warm next track's artwork in memory cache if needed
+            if (nextArtworkBytes == null && nextTrack.artworkUrl.isNotBlank()) {
+                fetchArtworkBytes(nextTrack.artworkUrl) {}
+            }
         }
 
         exoPlayer.prepare()

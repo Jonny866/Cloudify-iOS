@@ -31,7 +31,7 @@ interface MusicRepository {
     
     // Offline Downloads
     fun getDownloadedTracks(): Flow<List<Track>>
-    suspend fun saveDownloadedTrack(track: Track, localFilePath: String)
+    suspend fun saveDownloadedTrack(track: Track, localFilePath: String, localArtworkPath: String? = null)
     suspend fun removeDownloadedTrack(trackId: String)
     
     // Playlists

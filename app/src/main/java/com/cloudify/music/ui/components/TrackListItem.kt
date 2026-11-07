@@ -65,9 +65,10 @@ fun TrackListItem(
                 .clip(RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center
         ) {
+            val context = LocalContext.current
             AsyncImage(
-                model = ImageRequest.Builder(LocalContext.current)
-                    .data(track.artworkUrl)
+                model = ImageRequest.Builder(context)
+                    .data(track.getDisplayArtwork(context))
                     .crossfade(true)
                     .size(160)
                     .build(),

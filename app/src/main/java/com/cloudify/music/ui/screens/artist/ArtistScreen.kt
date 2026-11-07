@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -354,7 +355,7 @@ fun ArtistScreen(
                         }
 
                         AsyncImage(
-                            model = track.artworkUrl,
+                            model = track.getDisplayArtwork(LocalContext.current),
                             contentDescription = track.title,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier
@@ -498,7 +499,7 @@ fun ArtistScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         AsyncImage(
-                            model = track.artworkUrl,
+                            model = track.getDisplayArtwork(LocalContext.current),
                             contentDescription = track.title,
                             contentScale = ContentScale.Crop,
                             modifier = Modifier

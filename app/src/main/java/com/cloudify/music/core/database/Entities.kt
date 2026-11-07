@@ -13,6 +13,7 @@ data class FavoriteTrackEntity(
     val durationMs: Long,
     val genre: String,
     val lyrics: String,
+    val localArtworkPath: String? = null,
     val addedAt: Long = System.currentTimeMillis()
 )
 
@@ -23,6 +24,7 @@ data class DownloadedTrackEntity(
     val artist: String,
     val artworkUrl: String,
     val localFilePath: String,
+    val localArtworkPath: String? = null,
     val durationMs: Long = 180000L,
     val genre: String = "Music",
     val downloadedAt: Long = System.currentTimeMillis()

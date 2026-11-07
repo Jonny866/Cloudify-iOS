@@ -72,9 +72,10 @@ fun MiniPlayer(
                     .padding(8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val context = LocalContext.current
                 AsyncImage(
-                    model = ImageRequest.Builder(LocalContext.current)
-                        .data(track.artworkUrl)
+                    model = ImageRequest.Builder(context)
+                        .data(track.getDisplayArtwork(context))
                         .crossfade(true)
                         .size(140)
                         .build(),

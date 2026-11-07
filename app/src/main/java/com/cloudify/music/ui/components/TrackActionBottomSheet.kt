@@ -56,8 +56,9 @@ fun TrackActionBottomSheet(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                val context = LocalContext.current
                 AsyncImage(
-                    model = track.artworkUrl,
+                    model = track.getDisplayArtwork(context),
                     contentDescription = track.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier

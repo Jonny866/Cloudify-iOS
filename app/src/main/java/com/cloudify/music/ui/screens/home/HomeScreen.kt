@@ -1,4 +1,4 @@
-﻿package com.cloudify.music.ui.screens.home
+package com.cloudify.music.ui.screens.home
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -530,7 +531,7 @@ fun PopularCard(
             .clickable(onClick = onClick)
     ) {
         AsyncImage(
-            model = track.artworkUrl,
+            model = track.getDisplayArtwork(LocalContext.current),
             contentDescription = track.title,
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -615,7 +616,7 @@ private fun FeaturedReleaseCard(
         ) {
             Row(modifier = Modifier.fillMaxWidth()) {
                 AsyncImage(
-                    model = track.artworkUrl,
+                    model = track.getDisplayArtwork(LocalContext.current),
                     contentDescription = track.title,
                     contentScale = ContentScale.Crop,
                     modifier = Modifier
