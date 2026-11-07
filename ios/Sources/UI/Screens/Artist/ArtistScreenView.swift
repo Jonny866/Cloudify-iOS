@@ -108,6 +108,7 @@ public struct ArtistScreenView: View {
             }
             .ignoresSafeArea(edges: .bottom)
         }
+        .edgesIgnoringSafeArea(.bottom)
         .task {
             loadArtistDetails()
         }

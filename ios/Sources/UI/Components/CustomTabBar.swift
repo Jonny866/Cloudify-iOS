@@ -67,7 +67,7 @@ public struct CustomTabBar: View {
             }
         }
         .padding(.top, 6)
-        .padding(.bottom, bottomInset > 0 ? (bottomInset - 16) : 6)
+        .padding(.bottom, bottomInset > 0 ? max(12, bottomInset - 16) : 6)
         .background(
             Color.darkSurface
                 .overlay(
@@ -76,6 +76,7 @@ public struct CustomTabBar: View {
                         .frame(height: 0.5),
                     alignment: .top
                 )
+                .ignoresSafeArea(edges: .bottom)
         )
     }
 }

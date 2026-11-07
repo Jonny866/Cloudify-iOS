@@ -378,14 +378,25 @@ public struct FullPlayerView: View {
             Spacer()
 
             let isDownloaded = repo.downloadedIds.contains(track.id)
+            let isDownloading = repo.activeDownloads.contains(track.id)
             Button(action: {
-                repo.downloadTrack(track)
+                if !isDownloaded && !isDownloading {
+                    repo.downloadTrack(track)
+                }
             }) {
                 HStack(spacing: 6) {
-                    Image(systemName: isDownloaded ? "checkmark.circle.fill" : "arrow.down.circle.fill")
-                        .font(.system(size: 15))
-                    Text(isDownloaded ? "Скачано" : "Скачать")
-                        .font(.system(size: 13, weight: .bold))
+                    if isDownloading {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: theme.currentTheme.light))
+                            .scaleEffect(0.7)
+                        Text("Загрузка...")
+                            .font(.system(size: 13, weight: .bold))
+                    } else {
+                        Image(systemName: isDownloaded ? "checkmark.circle.fill" : "arrow.down.circle.fill")
+                            .font(.system(size: 15))
+                        Text(isDownloaded ? "Скачано" : "Скачать")
+                            .font(.system(size: 13, weight: .bold))
+                    }
                 }
                 .foregroundColor(isDownloaded ? .accentGreen : theme.currentTheme.light)
                 .padding(.horizontal, 14)

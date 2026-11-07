@@ -247,14 +247,25 @@ public struct LibraryScreenView: View {
             HStack(spacing: 8) {
                 if !nonDownloadedFavorites.isEmpty {
                     Button(action: {
-                        repo.downloadAllTracks(nonDownloadedFavorites)
+                        if !repo.isProcessingQueue {
+                            repo.downloadAllTracks(nonDownloadedFavorites)
+                        }
                     }) {
                         HStack(spacing: 6) {
-                            Image(systemName: "arrow.down.circle.fill")
-                                .font(.system(size: 14))
-                            Text(nonDownloadedFavorites.count == repo.favorites.count ? "Скачать все" : "Скачать (\(nonDownloadedFavorites.count))")
-                                .font(.system(size: 12, weight: .bold))
-                                .lineLimit(1)
+                            if repo.isProcessingQueue {
+                                ProgressView()
+                                    .progressViewStyle(CircularProgressViewStyle(tint: theme.currentTheme == .yellow ? .black : .white))
+                                    .scaleEffect(0.7)
+                                Text("Загрузка...")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .lineLimit(1)
+                            } else {
+                                Image(systemName: "arrow.down.circle.fill")
+                                    .font(.system(size: 14))
+                                Text(nonDownloadedFavorites.count == repo.favorites.count ? "Скачать все" : "Скачать (\(nonDownloadedFavorites.count))")
+                                    .font(.system(size: 12, weight: .bold))
+                                    .lineLimit(1)
+                            }
                         }
                         .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
                         .padding(.horizontal, 14)

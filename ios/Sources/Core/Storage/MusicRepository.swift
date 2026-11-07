@@ -1,5 +1,23 @@
 import Foundation
 import UIKit
+import UserNotifications
+import QuartzCore
+
+public struct DownloadBannerState: Equatable {
+    public let trackTitle: String
+    public let currentProgress: Double // 0.0 to 1.0
+    public let currentItem: Int
+    public let totalItems: Int
+    public let isCompleted: Bool
+
+    public init(trackTitle: String, currentProgress: Double, currentItem: Int, totalItems: Int, isCompleted: Bool) {
+        self.trackTitle = trackTitle
+        self.currentProgress = currentProgress
+        self.currentItem = currentItem
+        self.totalItems = totalItems
+        self.isCompleted = isCompleted
+    }
+}
 
 public final class MusicRepository: ObservableObject {
     public static let shared = MusicRepository()
@@ -13,6 +31,18 @@ public final class MusicRepository: ObservableObject {
     @Published public var downloadedIds: Set<String> = []
     @Published public var user: UserProfile = UserProfile()
     @Published public var isSyncing: Bool = false
+
+    // Real-time Download Management
+    @Published public var activeDownloads: Set<String> = []
+    @Published public var downloadProgress: [String: Double] = [:]
+    @Published public var downloadBanner: DownloadBannerState? = nil
+    @Published public var downloadToastMessage: String? = nil
+    @Published public var isProcessingQueue: Bool = false
+
+    private var downloadQueue: [Track] = []
+    private var currentBatchTotal: Int = 0
+    private var currentBatchCompleted: Int = 0
+    private var downloadTask: Task<Void, Never>? = nil
 
     private let documentsURL: URL
 
@@ -265,45 +295,242 @@ public final class MusicRepository: ObservableObject {
         return max(1.2, (hours * 10).rounded() / 10)
     }
 
+    // Notification Support
+    public func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { _, _ in }
+    }
+
+    public func postNotification(title: String, body: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.1, repeats: false)
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+        UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
+    }
+
+    public func showDownloadToast(_ msg: String) {
+        DispatchQueue.main.async {
+            withAnimation { self.downloadToastMessage = msg }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
+                withAnimation { self.downloadToastMessage = nil }
+            }
+        }
+    }
+
+    private func updateBanner(title: String, progress: Double) {
+        let currentIdx = min(self.currentBatchTotal, self.currentBatchCompleted + 1)
+        self.downloadBanner = DownloadBannerState(
+            trackTitle: title,
+            currentProgress: progress,
+            currentItem: currentIdx,
+            totalItems: max(1, self.currentBatchTotal),
+            isCompleted: false
+        )
+    }
+
     // Downloads
     public func downloadTrack(_ track: Track) {
+        requestNotificationPermission()
+
+        if downloadedIds.contains(track.id) {
+            showDownloadToast("Трек «\(track.title)» уже скачан")
+            return
+        }
+
+        if activeDownloads.contains(track.id) || downloadQueue.contains(where: { $0.id == track.id }) {
+            showDownloadToast("Трек «\(track.title)» уже в очереди загрузки")
+            return
+        }
+
+        if currentBatchTotal == 0 {
+            currentBatchTotal = 1
+            currentBatchCompleted = 0
+        } else {
+            currentBatchTotal += 1
+        }
+
+        activeDownloads.insert(track.id)
+        downloadProgress[track.id] = 0.05
+        downloadQueue.append(track)
+
+        showDownloadToast("Скачивание: \(track.title)...")
+        postNotification(title: "Скачивание трека", body: "«\(track.title)» (\(track.artist))")
+
+        updateBanner(title: track.title, progress: 0.05)
+        startQueueProcessingIfNeeded()
+    }
+
+    public func downloadAllTracks(_ tracks: [Track]) {
+        requestNotificationPermission()
+
+        let toDownload = tracks.filter { !downloadedIds.contains($0.id) && !activeDownloads.contains($0.id) && !downloadQueue.contains(where: { q in q.id == $0.id }) }
+
+        if toDownload.isEmpty {
+            showDownloadToast("Все треки уже скачаны")
+            return
+        }
+
+        currentBatchTotal = currentBatchCompleted + toDownload.count
+        for t in toDownload {
+            activeDownloads.insert(t.id)
+            downloadProgress[t.id] = 0.0
+            downloadQueue.append(t)
+        }
+
+        showDownloadToast("Начато скачивание: \(toDownload.count) треков...")
+        postNotification(title: "Cloudify: Загрузка началась", body: "Скачивание \(toDownload.count) треков...")
+
+        if let first = toDownload.first {
+            updateBanner(title: first.title, progress: 0.02)
+        }
+        startQueueProcessingIfNeeded()
+    }
+
+    private func startQueueProcessingIfNeeded() {
+        guard !isProcessingQueue else { return }
+        isProcessingQueue = true
+
+        downloadTask?.cancel()
+        downloadTask = Task {
+            while !Task.isCancelled {
+                var nextTrack: Track? = nil
+                await MainActor.run {
+                    if !self.downloadQueue.isEmpty {
+                        nextTrack = self.downloadQueue.removeFirst()
+                    }
+                }
+
+                guard let track = nextTrack else { break }
+                await processSingleDownload(track)
+            }
+
+            await MainActor.run {
+                self.isProcessingQueue = false
+                let total = max(1, self.currentBatchTotal)
+                self.downloadBanner = DownloadBannerState(
+                    trackTitle: "Все треки скачаны (\(total))",
+                    currentProgress: 1.0,
+                    currentItem: total,
+                    totalItems: total,
+                    isCompleted: true
+                )
+                self.showDownloadToast("✓ Загрузка завершена (\(total) треков)")
+                self.postNotification(title: "✓ Все треки скачаны", body: "Сохранено \(total) треков для офлайн прослушивания")
+
+                self.currentBatchTotal = 0
+                self.currentBatchCompleted = 0
+            }
+
+            try? await Task.sleep(nanoseconds: 3_500_000_000)
+            await MainActor.run {
+                if self.downloadQueue.isEmpty && self.activeDownloads.isEmpty {
+                    withAnimation {
+                        self.downloadBanner = nil
+                    }
+                }
+            }
+        }
+    }
+
+    private func processSingleDownload(_ track: Track) async {
         let destDir = documentsURL.appendingPathComponent("Downloads", isDirectory: true)
         try? FileManager.default.createDirectory(at: destDir, withIntermediateDirectories: true)
 
         let safeName = "track_\(track.id.replacingOccurrences(of: "[^a-zA-Z0-9_]", with: "_", options: .regularExpression)).mp3"
         let destURL = destDir.appendingPathComponent(safeName)
 
-        if FileManager.default.fileExists(atPath: destURL.path) {
-            DispatchQueue.main.async {
+        // Check if file already exists on disk
+        if FileManager.default.fileExists(atPath: destURL.path),
+           let attr = try? FileManager.default.attributesOfItem(atPath: destURL.path),
+           let size = attr[.size] as? Int64, size > 10000 {
+            await MainActor.run {
                 self.markTrackAsDownloaded(track, localPath: destURL.path)
+                self.activeDownloads.remove(track.id)
+                self.downloadProgress[track.id] = 1.0
+                self.currentBatchCompleted += 1
             }
             return
         }
 
-        guard let url = URL(string: track.streamUrl) else { return }
+        var streamUrlString = track.streamUrl
+        if !streamUrlString.contains("/api/stream") && !streamUrlString.contains("/api/download") && !streamUrlString.hasPrefix("file:") {
+            if let resolved = CloudifyAPI.getStreamUrl(webpageUrl: streamUrlString) {
+                streamUrlString = resolved.absoluteString
+            }
+        }
 
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 45
-        let session = URLSession(configuration: config)
+        guard let url = URL(string: streamUrlString) else {
+            await MainActor.run {
+                self.activeDownloads.remove(track.id)
+            }
+            return
+        }
 
-        session.downloadTask(with: url) { [weak self] tempURL, _, error in
-            guard let self = self, let tempURL = tempURL, error == nil else {
-                print("Download task error: \(String(describing: error))")
+        var request = URLRequest(url: url)
+        request.setValue("CloudifyApp/1.0", forHTTPHeaderField: "User-Agent")
+        request.timeoutInterval = 60
+
+        do {
+            let session = URLSession(configuration: .default)
+            let (asyncBytes, response) = try await session.bytes(for: request)
+
+            guard let httpRes = response as? HTTPURLResponse, (200...299).contains(httpRes.statusCode) else {
+                await MainActor.run {
+                    self.activeDownloads.remove(track.id)
+                    self.showDownloadToast("Ошибка скачивания: \(track.title)")
+                }
                 return
             }
-            do {
-                if FileManager.default.fileExists(atPath: destURL.path) {
-                    try FileManager.default.removeItem(at: destURL)
-                }
-                try FileManager.default.moveItem(at: tempURL, to: destURL)
 
-                DispatchQueue.main.async {
-                    self.markTrackAsDownloaded(track, localPath: destURL.path)
-                }
-            } catch {
-                print("Save downloaded track failed: \(error)")
+            let expectedLength = response.expectedContentLength
+            var fileData = Data()
+            if expectedLength > 0 {
+                fileData.reserveCapacity(Int(expectedLength))
             }
-        }.resume()
+
+            var lastReportTime: TimeInterval = 0
+
+            for try await byte in asyncBytes {
+                fileData.append(byte)
+                if expectedLength > 0 {
+                    let now = CACurrentMediaTime()
+                    if now - lastReportTime > 0.2 {
+                        lastReportTime = now
+                        let pct = min(0.99, Double(fileData.count) / Double(expectedLength))
+                        await MainActor.run {
+                            self.downloadProgress[track.id] = pct
+                            self.updateBanner(title: track.title, progress: pct)
+                        }
+                    }
+                }
+            }
+
+            if fileData.count > 10000 {
+                try fileData.write(to: destURL, options: .atomic)
+
+                await MainActor.run {
+                    self.markTrackAsDownloaded(track, localPath: destURL.path)
+                    self.activeDownloads.remove(track.id)
+                    self.downloadProgress[track.id] = 1.0
+                    self.currentBatchCompleted += 1
+                    self.showDownloadToast("✓ Скачано: \(track.title)")
+                    self.postNotification(title: "✓ Скачано: \(track.title)", body: "\(track.artist) • доступно оффлайн")
+                }
+            } else {
+                await MainActor.run {
+                    self.activeDownloads.remove(track.id)
+                    self.showDownloadToast("Ошибка файла: \(track.title)")
+                }
+            }
+        } catch {
+            await MainActor.run {
+                self.activeDownloads.remove(track.id)
+                self.showDownloadToast("Сбой соединения: \(track.title)")
+            }
+        }
     }
 
     private func markTrackAsDownloaded(_ track: Track, localPath: String) {
@@ -319,9 +546,18 @@ public final class MusicRepository: ObservableObject {
         }
         self.downloadedIds.insert(track.id)
 
-        if let favIdx = self.favorites.firstIndex(where: { $0.id == track.id }) {
-            self.favorites[favIdx].isDownloaded = true
-            self.favorites[favIdx].localFilePath = localPath
+        for i in 0..<self.favorites.count {
+            if self.favorites[i].id == track.id {
+                self.favorites[i].isDownloaded = true
+                self.favorites[i].localFilePath = localPath
+            }
+        }
+
+        for i in 0..<self.recentTracks.count {
+            if self.recentTracks[i].id == track.id {
+                self.recentTracks[i].isDownloaded = true
+                self.recentTracks[i].localFilePath = localPath
+            }
         }
 
         self.saveToStorage()
@@ -604,11 +840,6 @@ public final class MusicRepository: ObservableObject {
         return (count, lines.count)
     }
 
-    public func downloadAllTracks(_ tracks: [Track]) {
-        for t in tracks {
-            downloadTrack(t)
-        }
-    }
 
     // Audio Quality & Caching Settings (Matching Android 7.9)
     @Published public var audioQuality: String = UserDefaults.standard.string(forKey: "cloudify_audio_quality") ?? "Высокое (320 kbps)" {

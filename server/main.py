@@ -112,7 +112,8 @@ async def get_valid_client_id(force_refresh: bool = False) -> str:
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         }
 
-        async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, headers=headers) as client:
+        timeout_cfg = httpx.Timeout(15.0, connect=10.0)
+        async with httpx.AsyncClient(timeout=timeout_cfg, follow_redirects=True, headers=headers) as client:
             # 1. Try scraping from soundcloud.com
             for page_url in ["https://soundcloud.com", "https://soundcloud.com/discover"]:
                 try:
@@ -245,7 +246,8 @@ async def _search_soundcloud_api(query: str, limit: int = 30) -> List[dict]:
         "Referer": "https://soundcloud.com/",
     }
 
-    async with httpx.AsyncClient(timeout=8.0, follow_redirects=True, headers=headers) as client:
+    timeout_cfg = httpx.Timeout(15.0, connect=10.0)
+    async with httpx.AsyncClient(timeout=timeout_cfg, follow_redirects=True, headers=headers) as client:
         for attempt in range(len(KNOWN_CLIENT_IDS) + 1):
             try:
                 url = "https://api-v2.soundcloud.com/search/tracks"
@@ -372,7 +374,8 @@ async def _resolve_soundcloud_media(webpage_url: str, is_fallback: bool = False)
         "Referer": "https://soundcloud.com/",
     }
 
-    async with httpx.AsyncClient(timeout=10.0, follow_redirects=True, headers=headers) as client:
+    timeout_cfg = httpx.Timeout(20.0, connect=12.0)
+    async with httpx.AsyncClient(timeout=timeout_cfg, follow_redirects=True, headers=headers) as client:
         for attempt in range(2):
             try:
                 # 1. Resolve webpage URL to track object
@@ -513,6 +516,9 @@ async def _resolve_soundcloud_media(webpage_url: str, is_fallback: bool = False)
 
             except Exception as e:
                 print(f"[SoundCloud Resolve Error]: {type(e).__name__}: {e}")
+                if attempt == 0:
+                    client_id = await get_valid_client_id(force_refresh=True)
+                    continue
 
     return None
 

@@ -11,6 +11,7 @@ public struct TrackRowView: View {
     public let onMoreClick: () -> Void
 
     @ObservedObject var theme = ThemeManager.shared
+    @ObservedObject var repo = MusicRepository.shared
 
     public init(
         track: Track,
@@ -60,10 +61,15 @@ public struct TrackRowView: View {
                     .lineLimit(1)
 
                 HStack(spacing: 4) {
-                    if isDownloaded || track.isDownloaded {
+                    if isDownloaded || track.isDownloaded || repo.downloadedIds.contains(track.id) {
                         Image(systemName: "arrow.down.circle.fill")
                             .font(.system(size: 11))
                             .foregroundColor(theme.currentTheme.primary)
+                    } else if repo.activeDownloads.contains(track.id) {
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: theme.currentTheme.primary))
+                            .scaleEffect(0.65)
+                            .frame(width: 14, height: 14)
                     }
                     Text(track.artist)
                         .font(.system(size: 12))
