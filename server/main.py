@@ -411,6 +411,12 @@ async def _resolve_soundcloud_media(webpage_url: str, is_fallback: bool = False)
                 transcodings = media.get("transcodings") or []
                 track_auth = track_data.get("track_authorization")
 
+                title = clean_title(track_data.get("title", ""))
+                user = track_data.get("user") or {}
+                clean_artist = (track_data.get("publisher_metadata") or {}).get("artist") or user.get("username", "") or ""
+                clean_artist = re.sub(r'(-sc|-music|_sc|_music|-official|_official|\s+official|\s+topic|\s+-\s+Topic)$', '', clean_artist, flags=re.IGNORECASE).strip()
+                duration_sec = int(track_data.get("duration", 0) / 1000)
+
                 # Priority 1: Check progressive stream (direct MP3 file from CDN)
                 prog_transcoding = next(
                     (t for t in transcodings if t.get("format", {}).get("protocol") == "progressive"),
@@ -424,7 +430,13 @@ async def _resolve_soundcloud_media(webpage_url: str, is_fallback: bool = False)
                     if stream_res.status_code == 200:
                         direct_url = stream_res.json().get("url")
                         if direct_url:
-                            return {"type": "progressive", "url": direct_url}
+                            return {
+                                "type": "progressive",
+                                "url": direct_url,
+                                "title": title,
+                                "artist": clean_artist,
+                                "duration_sec": duration_sec
+                            }
 
                 # Priority 2: Check HLS streams (ONLY unencrypted, playable streams)
                 hls_candidates = [
@@ -505,7 +517,13 @@ async def _resolve_soundcloud_media(webpage_url: str, is_fallback: bool = False)
                             m3u8_url = stream_res.json().get("url")
                             if m3u8_url:
                                 print(f"[SoundCloud Resolve] Matched stream preset '{cand.get('preset')}' -> {m3u8_url[:60]}...")
-                                return {"type": "hls", "url": m3u8_url}
+                                return {
+                                    "type": "hls",
+                                    "url": m3u8_url,
+                                    "title": title,
+                                    "artist": clean_artist,
+                                    "duration_sec": duration_sec
+                                }
                     except Exception as stream_err:
                         print(f"[SoundCloud Resolve Cand Error]: {type(stream_err).__name__}: {stream_err}")
 
@@ -549,10 +567,10 @@ async def _download_progressive_mp3(direct_url: str, target_path: str) -> bool:
     return False
 
 
-def _transcode_hls_to_mp3_sync(m3u8_url: str, target_mp3_path: str) -> bool:
+def _transcode_hls_to_mp3_sync(m3u8_url: str, target_mp3_path: str, timeout_sec: int = 70) -> bool:
     """
     Uses FFmpeg on the server to convert SoundCloud HLS stream to clean 192k MP3.
-    Uses auto-reconnect flags, thread bounding (threads=2), and 25s timeout to prevent hanging.
+    Uses auto-reconnect flags, referer headers, thread bounding (threads=2), and dynamic timeout.
     """
     temp_path = os.path.join(CACHE_DIR, f"{os.path.basename(target_mp3_path)}.temp.mp3")
 
@@ -560,7 +578,8 @@ def _transcode_hls_to_mp3_sync(m3u8_url: str, target_mp3_path: str) -> bool:
         # Attempt 1: Standard libmp3lame with auto-reconnect and bounded threads
         [
             "ffmpeg", "-y", "-loglevel", "error",
-            "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "-headers", "Referer: https://soundcloud.com/\r\n",
             "-reconnect", "1",
             "-reconnect_streamed", "1",
             "-reconnect_delay_max", "2",
@@ -575,7 +594,8 @@ def _transcode_hls_to_mp3_sync(m3u8_url: str, target_mp3_path: str) -> bool:
         # Attempt 2: built-in mp3 encoder as fallback
         [
             "ffmpeg", "-y", "-loglevel", "error",
-            "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "-user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "-headers", "Referer: https://soundcloud.com/\r\n",
             "-reconnect", "1",
             "-reconnect_streamed", "1",
             "-reconnect_delay_max", "2",
@@ -591,7 +611,7 @@ def _transcode_hls_to_mp3_sync(m3u8_url: str, target_mp3_path: str) -> bool:
 
     for i, cmd in enumerate(attempts, 1):
         try:
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=25)
+            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout_sec)
             if res.returncode == 0 and os.path.exists(temp_path) and os.path.getsize(temp_path) > 10000:
                 os.replace(temp_path, target_mp3_path)
                 print(f"[FFmpeg Transcode Success (attempt {i})] -> {target_mp3_path} ({os.path.getsize(target_mp3_path)} bytes)")
@@ -602,7 +622,7 @@ def _transcode_hls_to_mp3_sync(m3u8_url: str, target_mp3_path: str) -> bool:
                 if any(x in err_msg.lower() for x in ["403", "forbidden", "unauthorized", "key", "encryption", "crypto"]):
                     break
         except subprocess.TimeoutExpired:
-            print(f"[FFmpeg Attempt {i} Timeout]: Exceeded 25s limit")
+            print(f"[FFmpeg Attempt {i} Timeout]: Exceeded {timeout_sec}s limit")
         except Exception as e:
             print(f"[FFmpeg Attempt {i} Exception]: {e}")
         finally:
@@ -639,10 +659,35 @@ async def _get_or_download_track(url: str, track_hash: str) -> Optional[str]:
 
     # 3. If HLS, transcode with server FFmpeg (concurrency limited to 2 processes)
     m3u8_url = media_info["url"]
+    duration_sec = media_info.get("duration_sec", 180)
+    timeout_sec = max(60, min(180, int(duration_sec * 0.25) + 35))
+
     async with TRANSCODE_SEMAPHORE:
-        success = await asyncio.to_thread(_transcode_hls_to_mp3_sync, m3u8_url, target_mp3)
+        success = await asyncio.to_thread(_transcode_hls_to_mp3_sync, m3u8_url, target_mp3, timeout_sec)
     if success and os.path.exists(target_mp3):
         return target_mp3
+
+    # 4. If primary upload failed or timed out, automatically search alternative upload of the same song
+    title = media_info.get("title", "")
+    artist = media_info.get("artist", "")
+    fallback_query = f"{artist} {title}".strip() if artist and title else title
+    if fallback_query:
+        print(f"[Stream Fallback] Primary upload transcode failed for {url}. Searching alternative: '{fallback_query}'...")
+        alt_tracks = await _search_soundcloud_api(fallback_query, limit=3)
+        for alt in alt_tracks:
+            alt_url = alt.get("url")
+            if alt_url and alt_url != url:
+                alt_media = await _resolve_soundcloud_media(alt_url, is_fallback=True)
+                if alt_media and alt_media.get("url"):
+                    if alt_media.get("type") == "progressive":
+                        if await _download_progressive_mp3(alt_media["url"], target_mp3):
+                            print(f"[Stream Fallback Success] Downloaded alternative '{alt.get('title')}'")
+                            return target_mp3
+                    else:
+                        async with TRANSCODE_SEMAPHORE:
+                            if await asyncio.to_thread(_transcode_hls_to_mp3_sync, alt_media["url"], target_mp3, 60):
+                                print(f"[Stream Fallback Success] Transcoded alternative '{alt.get('title')}'")
+                                return target_mp3
 
     return None
 
