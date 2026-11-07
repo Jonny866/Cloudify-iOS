@@ -26,8 +26,13 @@ public enum MainTab: Int, CaseIterable {
 }
 
 public struct CustomTabBar: View {
-    @Binding public var selectedTab: MainTab
+    @ObservedObject var nav = AppNavigationManager.shared
     @ObservedObject var theme = ThemeManager.shared
+    private var customBinding: Binding<MainTab>?
+
+    private var currentTab: MainTab {
+        customBinding?.wrappedValue ?? nav.selectedTab
+    }
 
     private var bottomInset: CGFloat {
         if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
@@ -37,18 +42,19 @@ public struct CustomTabBar: View {
         return 0
     }
 
-    public init(selectedTab: Binding<MainTab>) {
-        self._selectedTab = selectedTab
+    public init(selectedTab: Binding<MainTab>? = nil) {
+        self.customBinding = selectedTab
     }
 
     public var body: some View {
         HStack(spacing: 0) {
             ForEach(MainTab.allCases, id: \.self) { tab in
-                let isSelected = selectedTab == tab
+                let isSelected = currentTab == tab
                 Button(action: {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        selectedTab = tab
+                    if let binding = customBinding {
+                        binding.wrappedValue = tab
                     }
+                    nav.navigateTo(tab: tab)
                 }) {
                     VStack(spacing: 3) {
                         Image(systemName: tab.icon)

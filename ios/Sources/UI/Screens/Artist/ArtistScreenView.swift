@@ -2,7 +2,6 @@ import SwiftUI
 
 public struct ArtistScreenView: View {
     public let artistName: String
-    @Binding public var selectedTab: MainTab
     public let onBack: () -> Void
     public var onSelectTab: ((MainTab) -> Void)? = nil
     public var onOpenFullPlayer: (() -> Void)? = nil
@@ -18,13 +17,11 @@ public struct ArtistScreenView: View {
 
     public init(
         artistName: String,
-        selectedTab: Binding<MainTab>,
         onBack: @escaping () -> Void,
         onSelectTab: ((MainTab) -> Void)? = nil,
         onOpenFullPlayer: (() -> Void)? = nil
     ) {
         self.artistName = artistName
-        self._selectedTab = selectedTab
         self.onBack = onBack
         self.onSelectTab = onSelectTab
         self.onOpenFullPlayer = onOpenFullPlayer
@@ -98,13 +95,7 @@ public struct ArtistScreenView: View {
                     onOpenFullPlayer?()
                 })
 
-                CustomTabBar(selectedTab: Binding(
-                    get: { selectedTab },
-                    set: { newTab in
-                        selectedTab = newTab
-                        onSelectTab?(newTab)
-                    }
-                ))
+                CustomTabBar()
             }
             .ignoresSafeArea(edges: .bottom)
         }
@@ -398,6 +389,8 @@ public struct ArtistScreenView: View {
                     isCurrent: player.currentTrack?.id == track.id,
                     isPlaying: player.isPlaying,
                     isFavorite: repo.isFavorite(track.id),
+                    isDownloaded: repo.downloadedIds.contains(track.id),
+                    isDownloading: repo.activeDownloads.contains(track.id),
                     onPlay: {
                         player.playTrack(track, in: detail.allTracks)
                     },

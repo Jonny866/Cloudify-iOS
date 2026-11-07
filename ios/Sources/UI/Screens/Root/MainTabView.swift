@@ -1,12 +1,7 @@
 import SwiftUI
 
 public struct MainTabView: View {
-    @State private var selectedTab: MainTab = .home
-    @State private var showFullPlayer: Bool = false
-    @State private var showProfileScreen: Bool = false
-    @State private var navArtistName: String? = nil
-
-    @ObservedObject var player = AudioPlayerService.shared
+    @ObservedObject var nav = AppNavigationManager.shared
     @ObservedObject var repo = MusicRepository.shared
 
     public init() {}
@@ -17,19 +12,19 @@ public struct MainTabView: View {
 
             // Current Tab Screen
             Group {
-                switch selectedTab {
+                switch nav.selectedTab {
                 case .home:
                     HomeScreenView(
-                        onArtistClick: { name in navArtistName = name },
-                        onProfileClick: { showProfileScreen = true }
+                        onArtistClick: { name in nav.openArtist(name) },
+                        onProfileClick: { nav.showProfileScreen = true }
                     )
                 case .search:
                     SearchScreenView(
-                        onArtistClick: { name in navArtistName = name }
+                        onArtistClick: { name in nav.openArtist(name) }
                     )
                 case .library:
                     LibraryScreenView(
-                        onArtistClick: { name in navArtistName = name }
+                        onArtistClick: { name in nav.openArtist(name) }
                     )
                 case .stats:
                     StatsScreenView()
@@ -45,12 +40,12 @@ public struct MainTabView: View {
                 // Mini Player floating above tabs
                 MiniPlayerView(
                     onOpenFullPlayer: {
-                        showFullPlayer = true
+                        nav.showFullPlayer = true
                     }
                 )
 
                 // Custom Tab Bar docked flush with bottom edge
-                CustomTabBar(selectedTab: $selectedTab)
+                CustomTabBar()
             }
             .ignoresSafeArea(edges: .bottom)
 
@@ -77,36 +72,34 @@ public struct MainTabView: View {
         // Artist Screen Overlay
         .overlay(
             Group {
-                if let artist = navArtistName {
+                if let artist = nav.navArtistName {
                     ArtistScreenView(
                         artistName: artist,
-                        selectedTab: $selectedTab,
-                        onBack: { navArtistName = nil },
+                        onBack: { nav.navArtistName = nil },
                         onSelectTab: { tab in
-                            selectedTab = tab
-                            navArtistName = nil
+                            nav.navigateTo(tab: tab)
                         },
-                        onOpenFullPlayer: { showFullPlayer = true }
+                        onOpenFullPlayer: { nav.showFullPlayer = true }
                     )
                     .transition(.move(edge: .trailing))
                 }
             }
         )
-        .animation(.easeInOut(duration: 0.25), value: navArtistName)
+        .animation(.easeInOut(duration: 0.25), value: nav.navArtistName)
         // Full Player Modal
-        .fullScreenCover(isPresented: $showFullPlayer) {
+        .fullScreenCover(isPresented: $nav.showFullPlayer) {
             FullPlayerView(
-                onDismiss: { showFullPlayer = false },
+                onDismiss: { nav.showFullPlayer = false },
                 onArtistClick: { name in
-                    showFullPlayer = false
-                    navArtistName = name
+                    nav.showFullPlayer = false
+                    nav.openArtist(name)
                 }
             )
         }
         // Profile & Settings Screen
-        .fullScreenCover(isPresented: $showProfileScreen) {
+        .fullScreenCover(isPresented: $nav.showProfileScreen) {
             ProfileAndSettingsView(
-                onBack: { showProfileScreen = false }
+                onBack: { nav.showProfileScreen = false }
             )
         }
     }

@@ -6,12 +6,12 @@ public struct TrackRowView: View {
     public let isPlaying: Bool
     public let isFavorite: Bool
     public let isDownloaded: Bool
+    public let isDownloading: Bool
     public let onPlay: () -> Void
     public let onFavoriteToggle: () -> Void
     public let onMoreClick: () -> Void
 
     @ObservedObject var theme = ThemeManager.shared
-    @ObservedObject var repo = MusicRepository.shared
 
     public init(
         track: Track,
@@ -19,6 +19,7 @@ public struct TrackRowView: View {
         isPlaying: Bool = false,
         isFavorite: Bool = false,
         isDownloaded: Bool = false,
+        isDownloading: Bool = false,
         onPlay: @escaping () -> Void,
         onFavoriteToggle: @escaping () -> Void,
         onMoreClick: @escaping () -> Void
@@ -28,6 +29,7 @@ public struct TrackRowView: View {
         self.isPlaying = isPlaying
         self.isFavorite = isFavorite
         self.isDownloaded = isDownloaded
+        self.isDownloading = isDownloading
         self.onPlay = onPlay
         self.onFavoriteToggle = onFavoriteToggle
         self.onMoreClick = onMoreClick
@@ -61,11 +63,11 @@ public struct TrackRowView: View {
                     .lineLimit(1)
 
                 HStack(spacing: 4) {
-                    if isDownloaded || track.isDownloaded || repo.downloadedIds.contains(track.id) {
+                    if isDownloaded || track.isDownloaded {
                         Image(systemName: "arrow.down.circle.fill")
                             .font(.system(size: 11))
                             .foregroundColor(theme.currentTheme.primary)
-                    } else if repo.activeDownloads.contains(track.id) {
+                    } else if isDownloading {
                         ProgressView()
                             .progressViewStyle(CircularProgressViewStyle(tint: theme.currentTheme.primary))
                             .scaleEffect(0.65)

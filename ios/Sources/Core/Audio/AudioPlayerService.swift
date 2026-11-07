@@ -9,6 +9,15 @@ public enum RepeatMode: String, CaseIterable {
     case one = "ONE"
 }
 
+public final class PlaybackProgress: ObservableObject {
+    public static let shared = PlaybackProgress()
+
+    @Published public var currentTime: Double = 0.0
+    @Published public var duration: Double = 180.0
+
+    private init() {}
+}
+
 public final class AudioPlayerService: NSObject, ObservableObject {
     public static let shared = AudioPlayerService()
 
@@ -21,8 +30,17 @@ public final class AudioPlayerService: NSObject, ObservableObject {
     @Published public var currentIndex: Int = 0
     @Published public var isPlaying: Bool = false
     @Published public var isBuffering: Bool = false
-    @Published public var currentTime: Double = 0.0
-    @Published public var duration: Double = 180.0
+
+    public var currentTime: Double {
+        get { PlaybackProgress.shared.currentTime }
+        set { PlaybackProgress.shared.currentTime = newValue }
+    }
+
+    public var duration: Double {
+        get { PlaybackProgress.shared.duration }
+        set { PlaybackProgress.shared.duration = newValue }
+    }
+
     @Published public var isShuffle: Bool = false
     @Published public var repeatMode: RepeatMode = .off
     @Published public var sleepTimerMinutes: Int? = nil

@@ -215,6 +215,8 @@ public struct SearchScreenView: View {
                                     isCurrent: player.currentTrack?.id == track.id,
                                     isPlaying: player.isPlaying,
                                     isFavorite: repo.isFavorite(track.id),
+                                    isDownloaded: repo.downloadedIds.contains(track.id),
+                                    isDownloading: repo.activeDownloads.contains(track.id),
                                     onPlay: {
                                         player.playTrack(track, in: searchResults, source: "Поиск")
                                         repo.addRecentTrack(track)

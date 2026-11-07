@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct MiniPlayerView: View {
     @ObservedObject var player = AudioPlayerService.shared
+    @ObservedObject var progress = PlaybackProgress.shared
     @ObservedObject var repo = MusicRepository.shared
     @ObservedObject var theme = ThemeManager.shared
     public let onOpenFullPlayer: () -> Void
@@ -87,7 +88,7 @@ public struct MiniPlayerView: View {
 
                 // Slim Progress Line
                 GeometryReader { geo in
-                    let progress = player.duration > 0 ? (player.currentTime / player.duration) : 0
+                    let pct = progress.duration > 0 ? (progress.currentTime / progress.duration) : 0
                     ZStack(alignment: .leading) {
                         Rectangle()
                             .fill(Color.white.opacity(0.08))
@@ -95,7 +96,7 @@ public struct MiniPlayerView: View {
 
                         Rectangle()
                             .fill(theme.currentTheme.primary)
-                            .frame(width: max(0, min(geo.size.width, geo.size.width * CGFloat(progress))), height: 2)
+                            .frame(width: max(0, min(geo.size.width, geo.size.width * CGFloat(pct))), height: 2)
                     }
                 }
                 .frame(height: 2)

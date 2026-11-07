@@ -89,8 +89,6 @@ public struct FullPlayerView: View {
     public let onDismiss: () -> Void
     public let onArtistClick: (String) -> Void
 
-    @State private var isDraggingSlider: Bool = false
-    @State private var dragSliderValue: Double = 0.0
     @State private var showSleepTimerSheet: Bool = false
     @State private var showLyricsSheet: Bool = false
     @State private var dragOffset: CGFloat = 0.0
@@ -111,6 +109,24 @@ public struct FullPlayerView: View {
                 VStack(spacing: 0) {
                     // Drag Handle & Top Bar
                     topBar(track: track)
+                        .contentShape(Rectangle())
+                        .gesture(
+                            DragGesture()
+                                .onChanged { value in
+                                    if value.translation.height > 0 {
+                                        dragOffset = value.translation.height
+                                    }
+                                }
+                                .onEnded { value in
+                                    if value.translation.height > 100 {
+                                        onDismiss()
+                                    } else {
+                                        withAnimation(.spring()) {
+                                            dragOffset = 0
+                                        }
+                                    }
+                                }
+                        )
 
                     Spacer(minLength: 8)
 
@@ -142,23 +158,6 @@ public struct FullPlayerView: View {
                 .ignoresSafeArea(edges: .bottom)
             }
             .offset(y: max(0, dragOffset))
-            .gesture(
-                DragGesture()
-                    .onChanged { value in
-                        if value.translation.height > 0 {
-                            dragOffset = value.translation.height
-                        }
-                    }
-                    .onEnded { value in
-                        if value.translation.height > 120 {
-                            onDismiss()
-                        } else {
-                            withAnimation(.spring()) {
-                                dragOffset = 0
-                            }
-                        }
-                    }
-            )
             .sheet(isPresented: $showSleepTimerSheet) {
                 sleepTimerSheet
                     .presentationDetents([.fraction(0.35)])
@@ -259,37 +258,9 @@ public struct FullPlayerView: View {
 
     // Timeline Scrubber
     private var timelineSection: some View {
-        let currentPos = isDraggingSlider ? dragSliderValue : player.currentTime
-        let total = max(1.0, player.duration)
-
-        return VStack(spacing: 6) {
-            Slider(
-                value: Binding(
-                    get: { currentPos },
-                    set: { dragSliderValue = $0 }
-                ),
-                in: 0...total,
-                onEditingChanged: { editing in
-                    isDraggingSlider = editing
-                    if !editing {
-                        player.seek(to: dragSliderValue)
-                    }
-                }
-            )
-            .accentColor(theme.currentTheme.primary)
-
-            HStack {
-                Text(formatTime(currentPos))
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundColor(.textSecondary)
-
-                Spacer()
-
-                Text(formatTime(total))
-                    .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    .foregroundColor(.textSecondary)
-            }
-        }
+        PlayerTimelineScrubberView(onSeek: { seconds in
+            player.seek(to: seconds)
+        })
     }
 
     // Transport Controls
@@ -504,5 +475,59 @@ public struct AirPlayRoutePicker: UIViewRepresentable {
     public func updateUIView(_ uiView: AVRoutePickerView, context: Context) {
         uiView.tintColor = tint
         uiView.activeTintColor = tint
+    }
+}
+
+public struct PlayerTimelineScrubberView: View {
+    @ObservedObject var progress = PlaybackProgress.shared
+    @ObservedObject var theme = ThemeManager.shared
+    public let onSeek: (Double) -> Void
+
+    @State private var isDragging: Bool = false
+    @State private var dragValue: Double = 0.0
+
+    private func formatTime(_ seconds: Double) -> String {
+        guard !seconds.isNaN && !seconds.isInfinite else { return "00:00" }
+        let total = Int(max(0, seconds))
+        let m = total / 60
+        let s = total % 60
+        return String(format: "%02d:%02d", m, s)
+    }
+
+    public var body: some View {
+        let currentPos = isDragging ? dragValue : progress.currentTime
+        let total = max(1.0, progress.duration)
+
+        VStack(spacing: 6) {
+            Slider(
+                value: Binding(
+                    get: { currentPos },
+                    set: { dragValue = $0 }
+                ),
+                in: 0...total,
+                onEditingChanged: { editing in
+                    if editing {
+                        dragValue = progress.currentTime
+                    }
+                    isDragging = editing
+                    if !editing {
+                        onSeek(dragValue)
+                    }
+                }
+            )
+            .accentColor(theme.currentTheme.primary)
+
+            HStack {
+                Text(formatTime(currentPos))
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundColor(.textSecondary)
+
+                Spacer()
+
+                Text(formatTime(total))
+                    .font(.system(size: 12, weight: .medium, design: .monospaced))
+                    .foregroundColor(.textSecondary)
+            }
+        }
     }
 }

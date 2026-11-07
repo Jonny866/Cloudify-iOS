@@ -142,7 +142,30 @@ public struct LibraryScreenView: View {
 
                     switch selectedTab {
                     case .favorites:
-                        favoritesTabContent
+                        favoritesActionHeader
+                        if repo.favorites.isEmpty {
+                            favoritesEmptyState
+                        } else {
+                            ForEach(sortedFavorites) { track in
+                                TrackRowView(
+                                    track: track,
+                                    isCurrent: player.currentTrack?.id == track.id,
+                                    isPlaying: player.isPlaying,
+                                    isFavorite: true,
+                                    isDownloaded: repo.downloadedIds.contains(track.id),
+                                    isDownloading: repo.activeDownloads.contains(track.id),
+                                    onPlay: {
+                                        player.playTrack(track, in: sortedFavorites, source: "Любимые треки")
+                                    },
+                                    onFavoriteToggle: {
+                                        repo.toggleFavorite(track)
+                                    },
+                                    onMoreClick: {
+                                        actionTrack = track
+                                    }
+                                )
+                            }
+                        }
                     case .playlists:
                         playlistsTabContent
                     }
@@ -240,146 +263,122 @@ public struct LibraryScreenView: View {
         }
     }
 
-    // Favorites Tab with Download All, Import .txt, Shuffle
-    private var favoritesTabContent: some View {
-        VStack(spacing: 8) {
-            // Action Buttons Row (Matching Android 7.9)
-            HStack(spacing: 8) {
-                if !nonDownloadedFavorites.isEmpty {
-                    Button(action: {
-                        if !repo.isProcessingQueue {
-                            repo.downloadAllTracks(nonDownloadedFavorites)
-                        }
-                    }) {
-                        HStack(spacing: 6) {
-                            if repo.isProcessingQueue {
-                                ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: theme.currentTheme == .yellow ? .black : .white))
-                                    .scaleEffect(0.7)
-                                Text("Загрузка...")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .lineLimit(1)
-                            } else {
-                                Image(systemName: "arrow.down.circle.fill")
-                                    .font(.system(size: 14))
-                                Text(nonDownloadedFavorites.count == repo.favorites.count ? "Скачать все" : "Скачать (\(nonDownloadedFavorites.count))")
-                                    .font(.system(size: 12, weight: .bold))
-                                    .lineLimit(1)
-                            }
-                        }
-                        .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(theme.currentTheme.primary)
-                        .clipShape(Capsule())
+    // Favorites Action Header Row (Matching Android 7.9)
+    private var favoritesActionHeader: some View {
+        HStack(spacing: 8) {
+            if !nonDownloadedFavorites.isEmpty {
+                Button(action: {
+                    if !repo.isProcessingQueue {
+                        repo.downloadAllTracks(nonDownloadedFavorites)
                     }
-                }
-
-                if !repo.isImportCompleted {
-                    Button(action: {
-                        showFileImporter = true
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "square.and.arrow.down")
-                                .font(.system(size: 13))
-                            Text("Импорт .txt")
-                                .font(.system(size: 12, weight: .semibold))
+                }) {
+                    HStack(spacing: 6) {
+                        if repo.isProcessingQueue {
+                            ProgressView()
+                                .progressViewStyle(CircularProgressViewStyle(tint: theme.currentTheme == .yellow ? .black : .white))
+                            Text("Загрузка...")
+                                .font(.system(size: 12, weight: .bold))
                                 .lineLimit(1)
-                        }
-                        .foregroundColor(theme.currentTheme.light)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Color.darkSurfaceVariant)
-                        .clipShape(Capsule())
-                        .overlay(
-                            Capsule().stroke(theme.currentTheme.light.opacity(0.3), lineWidth: 1)
-                        )
-                    }
-                }
-
-                if !repo.favorites.isEmpty {
-                    Button(action: {
-                        let shuffled = repo.favorites.shuffled()
-                        if let first = shuffled.first {
-                            player.playTrack(first, in: shuffled, source: "Любимые треки")
-                        }
-                    }) {
-                        HStack(spacing: 6) {
-                            Image(systemName: "shuffle")
+                        } else {
+                            Image(systemName: "arrow.down.circle.fill")
                                 .font(.system(size: 14))
-                            Text("Перемешать")
-                                .font(.system(size: 12, weight: .semibold))
+                            Text(nonDownloadedFavorites.count == repo.favorites.count ? "Скачать все" : "Скачать (\(nonDownloadedFavorites.count))")
+                                .font(.system(size: 12, weight: .bold))
                                 .lineLimit(1)
                         }
-                        .foregroundColor(.textPrimary)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 8)
-                        .background(Color.darkSurfaceVariant)
-                        .clipShape(Capsule())
                     }
+                    .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(theme.currentTheme.primary)
+                    .clipShape(Capsule())
                 }
-
-                Spacer()
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 10)
-            .padding(.bottom, 4)
 
-            // Content or Empty State
-            if repo.favorites.isEmpty {
-                VStack(spacing: 12) {
-                    Spacer(minLength: 40)
-                    Image(systemName: "heart.slash")
-                        .font(.system(size: 48))
-                        .foregroundColor(theme.currentTheme.light)
-
-                    Text("Нет любимых треков")
-                        .font(.system(size: 18, weight: .bold))
-                        .foregroundColor(.textPrimary)
-
-                    Text("Нажимайте на сердечко у любых песен или нажмите кнопку «Импорт .txt» для загрузки треков из Яндекс Музыки, ВК или Spotify")
-                        .font(.system(size: 13))
-                        .foregroundColor(.textSecondary)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(4)
-                        .padding(.horizontal, 32)
-
-                    Button(action: { showFileImporter = true }) {
-                        HStack(spacing: 8) {
-                            Image(systemName: "square.and.arrow.down")
-                            Text("Импортировать треки из .txt")
-                                .fontWeight(.bold)
-                        }
-                        .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
-                        .padding(.horizontal, 20)
-                        .padding(.vertical, 12)
-                        .background(theme.currentTheme.primary)
-                        .clipShape(RoundedRectangle(cornerRadius: 14))
+            if !repo.isImportCompleted {
+                Button(action: {
+                    showFileImporter = true
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 13))
+                        Text("Импорт .txt")
+                            .font(.system(size: 12, weight: .semibold))
+                            .lineLimit(1)
                     }
-                    .padding(.top, 10)
-
-                    Spacer(minLength: 80)
-                }
-            } else {
-                ForEach(sortedFavorites) { track in
-                    TrackRowView(
-                        track: track,
-                        isCurrent: player.currentTrack?.id == track.id,
-                        isPlaying: player.isPlaying,
-                        isFavorite: true,
-                        isDownloaded: repo.downloadedIds.contains(track.id),
-                        onPlay: {
-                            player.playTrack(track, in: sortedFavorites, source: "Любимые треки")
-                        },
-                        onFavoriteToggle: {
-                            repo.toggleFavorite(track)
-                        },
-                        onMoreClick: {
-                            actionTrack = track
-                        }
+                    .foregroundColor(theme.currentTheme.light)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.darkSurfaceVariant)
+                    .clipShape(Capsule())
+                    .overlay(
+                        Capsule().stroke(theme.currentTheme.light.opacity(0.3), lineWidth: 1)
                     )
                 }
             }
+
+            if !repo.favorites.isEmpty {
+                Button(action: {
+                    let shuffled = repo.favorites.shuffled()
+                    if let first = shuffled.first {
+                        player.playTrack(first, in: shuffled, source: "Любимые треки")
+                    }
+                }) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "shuffle")
+                            .font(.system(size: 14))
+                        Text("Перемешать")
+                            .font(.system(size: 12, weight: .semibold))
+                            .lineLimit(1)
+                    }
+                    .foregroundColor(.textPrimary)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 8)
+                    .background(Color.darkSurfaceVariant)
+                    .clipShape(Capsule())
+                }
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 10)
+        .padding(.bottom, 4)
+    }
+
+    private var favoritesEmptyState: some View {
+        VStack(spacing: 12) {
+            Spacer(minLength: 40)
+            Image(systemName: "heart.slash")
+                .font(.system(size: 48))
+                .foregroundColor(theme.currentTheme.light)
+
+            Text("Нет любимых треков")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(.textPrimary)
+
+            Text("Нажимайте на сердечко у любых песен или нажмите кнопку «Импорт .txt» для загрузки треков из Яндекс Музыки, ВК или Spotify")
+                .font(.system(size: 13))
+                .foregroundColor(.textSecondary)
+                .multilineTextAlignment(.center)
+                .lineSpacing(4)
+                .padding(.horizontal, 32)
+
+            Button(action: { showFileImporter = true }) {
+                HStack(spacing: 8) {
+                    Image(systemName: "square.and.arrow.down")
+                    Text("Импортировать треки из .txt")
+                        .fontWeight(.bold)
+                }
+                .foregroundColor(theme.currentTheme == .yellow ? .black : .white)
+                .padding(.horizontal, 20)
+                .padding(.vertical, 12)
+                .background(theme.currentTheme.primary)
+                .clipShape(RoundedRectangle(cornerRadius: 14))
+            }
+            .padding(.top, 10)
+
+            Spacer(minLength: 80)
         }
     }
 
