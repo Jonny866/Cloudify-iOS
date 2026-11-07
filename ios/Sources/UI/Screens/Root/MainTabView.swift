@@ -47,11 +47,8 @@ public struct MainTabView: View {
 
                 // Custom Tab Bar docked flush with bottom edge
                 CustomTabBar(selectedTab: $selectedTab)
-                    .background(
-                        Color.darkSurface
-                            .ignoresSafeArea(edges: .bottom)
-                    )
             }
+            .ignoresSafeArea(edges: .bottom)
         }
         .ignoresSafeArea(.keyboard)
         // Artist Screen Overlay

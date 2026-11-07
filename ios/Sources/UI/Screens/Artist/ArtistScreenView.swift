@@ -105,11 +105,8 @@ public struct ArtistScreenView: View {
                         onSelectTab?(newTab)
                     }
                 ))
-                .background(
-                    Color.darkSurface
-                        .ignoresSafeArea(edges: .bottom)
-                )
             }
+            .ignoresSafeArea(edges: .bottom)
         }
         .task {
             loadArtistDetails()

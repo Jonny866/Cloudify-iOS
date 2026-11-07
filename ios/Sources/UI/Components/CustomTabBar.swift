@@ -29,6 +29,14 @@ public struct CustomTabBar: View {
     @Binding public var selectedTab: MainTab
     @ObservedObject var theme = ThemeManager.shared
 
+    private var bottomInset: CGFloat {
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            return window.safeAreaInsets.bottom
+        }
+        return 0
+    }
+
     public init(selectedTab: Binding<MainTab>) {
         self._selectedTab = selectedTab
     }
@@ -44,26 +52,27 @@ public struct CustomTabBar: View {
                 }) {
                     VStack(spacing: 3) {
                         Image(systemName: tab.icon)
-                            .font(.system(size: 17, weight: isSelected ? .bold : .medium))
+                            .font(.system(size: 19, weight: isSelected ? .bold : .medium))
                             .foregroundColor(isSelected ? theme.currentTheme.primary : .textMuted)
 
                         Text(tab.title)
-                            .font(.system(size: 10, weight: isSelected ? .bold : .medium))
+                            .font(.system(size: 10, weight: isSelected ? .semibold : .medium))
                             .foregroundColor(isSelected ? theme.currentTheme.primary : .textMuted)
+                            .lineLimit(1)
                     }
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
-                    .padding(.top, 15)
-                    .padding(.bottom, 5)
                 }
                 .buttonStyle(PlainButtonStyle())
             }
         }
+        .padding(.top, 6)
+        .padding(.bottom, bottomInset > 0 ? (bottomInset - 16) : 6)
         .background(
             Color.darkSurface
                 .overlay(
                     Rectangle()
-                        .fill(Color.darkBorder.opacity(0.6))
+                        .fill(Color.white.opacity(0.08))
                         .frame(height: 0.5),
                     alignment: .top
                 )

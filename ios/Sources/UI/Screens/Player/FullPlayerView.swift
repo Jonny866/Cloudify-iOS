@@ -95,6 +95,14 @@ public struct FullPlayerView: View {
     @State private var showLyricsSheet: Bool = false
     @State private var dragOffset: CGFloat = 0.0
 
+    private var bottomInset: CGFloat {
+        if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+           let window = windowScene.windows.first {
+            return window.safeAreaInsets.bottom
+        }
+        return 0
+    }
+
     public var body: some View {
         if let track = player.currentTrack {
             ZStack {
@@ -104,34 +112,34 @@ public struct FullPlayerView: View {
                     // Drag Handle & Top Bar
                     topBar(track: track)
 
-                    Spacer(minLength: 10)
+                    Spacer(minLength: 8)
 
                     // Big Cover Artwork
                     artworkView(track: track)
 
-                    Spacer(minLength: 16)
+                    Spacer(minLength: 12)
 
                     // Track Title, Artist, Favorite Heart
                     metaSection(track: track)
 
-                    Spacer(minLength: 12)
+                    Spacer(minLength: 10)
 
                     // Timeline Scrubber
                     timelineSection
 
-                    Spacer(minLength: 12)
+                    Spacer(minLength: 10)
 
                     // Main Controls (Shuffle, Prev, Play/Pause, Next, Repeat)
                     controlsSection
 
-                    Spacer(minLength: 16)
+                    Spacer(minLength: 12)
 
-                    // Bottom Bar (AirPlay / Device route, Lyrics, Queue)
+                    // Bottom Bar (AirPlay / Device route, Download, Lyrics)
                     bottomBarSection(track: track)
-
-                    Spacer(minLength: 20)
+                        .padding(.bottom, bottomInset > 0 ? (bottomInset - 16) : 10)
                 }
                 .padding(.horizontal, 24)
+                .ignoresSafeArea(edges: .bottom)
             }
             .offset(y: max(0, dragOffset))
             .gesture(
