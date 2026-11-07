@@ -302,7 +302,7 @@ fun LibraryScreen(
                         ) {
                             itemsIndexed(
                                 items = state.favoriteTracks,
-                                key = { index, track -> "fav_${track.id}_$index" },
+                                key = { _, track -> track.id },
                                 contentType = { _, _ -> "track" }
                             ) { _, track ->
                                 TrackListItem(
@@ -334,7 +334,7 @@ fun LibraryScreen(
                         ) {
                             itemsIndexed(
                                 items = state.playlists,
-                                key = { index, pl -> "pl_${pl.id}_$index" },
+                                key = { _, pl -> pl.id },
                                 contentType = { _, _ -> "playlist" }
                             ) { _, playlist ->
                                 PlaylistItemCard(

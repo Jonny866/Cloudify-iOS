@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -43,6 +44,7 @@ import com.cloudify.music.service.PlayerState
 import com.cloudify.music.service.RepeatMode
 import com.cloudify.music.ui.components.rememberConnectedAudioDevice
 import com.cloudify.music.ui.components.ConnectedAudioDevice
+import kotlinx.coroutines.flow.StateFlow
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -50,6 +52,7 @@ import kotlin.math.roundToInt
 @Composable
 fun FullPlayerScreen(
     playerState: PlayerState,
+    progressFlow: StateFlow<PlaybackProgress>? = null,
     playbackProgress: PlaybackProgress = PlaybackProgress(playerState.positionMs, playerState.durationMs),
     isFavorite: Boolean,
     onDismiss: () -> Unit,
@@ -73,28 +76,11 @@ fun FullPlayerScreen(
     var showSleepTimerDialog by remember { mutableStateOf(false) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
 
-    // 100% Solid Dark Theme with swipe-down to dismiss gesture
+    // 100% Solid Dark Theme with isolated swipe-down handlers
     Box(
         modifier = Modifier
             .fillMaxSize()
             .offset { IntOffset(0, dragOffsetY.roundToInt().coerceAtLeast(0)) }
-            .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragEnd = {
-                        if (dragOffsetY > 160f) {
-                            onDismiss()
-                        }
-                        dragOffsetY = 0f
-                    },
-                    onDragCancel = { dragOffsetY = 0f },
-                    onVerticalDrag = { change, dragAmount ->
-                        change.consume()
-                        if (dragAmount > 0 || dragOffsetY > 0f) {
-                            dragOffsetY = (dragOffsetY + dragAmount).coerceAtLeast(0f)
-                        }
-                    }
-                )
-            }
             .background(DeepBlack)
             .statusBarsPadding()
             .navigationBarsPadding()
@@ -106,11 +92,28 @@ fun FullPlayerScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Bar
+            // Top Bar with pull-down gesture
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 12.dp),
+                    .padding(vertical = 12.dp)
+                    .pointerInput(Unit) {
+                        detectVerticalDragGestures(
+                            onDragEnd = {
+                                if (dragOffsetY > 140f) {
+                                    onDismiss()
+                                }
+                                dragOffsetY = 0f
+                            },
+                            onDragCancel = { dragOffsetY = 0f },
+                            onVerticalDrag = { change, dragAmount ->
+                                change.consume()
+                                if (dragAmount > 0 || dragOffsetY > 0f) {
+                                    dragOffsetY = (dragOffsetY + dragAmount).coerceAtLeast(0f)
+                                }
+                            }
+                        )
+                    },
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -253,51 +256,13 @@ fun FullPlayerScreen(
                 }
             }
 
-            // Timeline Scrub Slider
-            var isDraggingSlider by remember { mutableStateOf(false) }
-            var dragSliderPosition by remember { mutableFloatStateOf(0f) }
-
-            val totalDuration = if (playbackProgress.durationMs > 0) playbackProgress.durationMs else track.durationMs
-            val effectivePositionMs = if (isDraggingSlider) dragSliderPosition.toLong() else playbackProgress.positionMs
-            val currentSec = effectivePositionMs / 1000
-            val totalSec = totalDuration / 1000
-
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Slider(
-                    value = effectivePositionMs.toFloat().coerceIn(0f, totalDuration.toFloat().coerceAtLeast(1f)),
-                    onValueChange = {
-                        isDraggingSlider = true
-                        dragSliderPosition = it
-                    },
-                    onValueChangeFinished = {
-                        isDraggingSlider = false
-                        onSeek(dragSliderPosition.toLong())
-                    },
-                    valueRange = 0f..totalDuration.toFloat().coerceAtLeast(1f),
-                    colors = SliderDefaults.colors(
-                        thumbColor = VioletPrimary,
-                        activeTrackColor = VioletPrimary,
-                        inactiveTrackColor = DarkSurfaceVariant
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = formatTime(currentSec),
-                        color = TextMuted,
-                        fontSize = 12.sp
-                    )
-                    Text(
-                        text = formatTime(totalSec),
-                        color = TextMuted,
-                        fontSize = 12.sp
-                    )
-                }
-            }
+            // Isolated Timeline Scrub Slider (immune to dropped frames & snap-back jumping)
+            PlayerTimelineScrubber(
+                progressFlow = progressFlow,
+                fallbackProgress = playbackProgress,
+                trackDurationMs = track.durationMs,
+                onSeek = onSeek
+            )
 
             // Main Playback Controls
             Row(
@@ -622,4 +587,78 @@ private fun formatTime(seconds: Long): String {
     val m = seconds / 60
     val s = seconds % 60
     return String.format(Locale.getDefault(), "%02d:%02d", m, s)
+}
+
+@Composable
+fun PlayerTimelineScrubber(
+    progressFlow: StateFlow<PlaybackProgress>?,
+    fallbackProgress: PlaybackProgress,
+    trackDurationMs: Long,
+    onSeek: (Long) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val progress = if (progressFlow != null) {
+        val p by progressFlow.collectAsState()
+        p
+    } else {
+        fallbackProgress
+    }
+
+    val totalDuration = if (progress.durationMs > 0) progress.durationMs else trackDurationMs.coerceAtLeast(1000L)
+
+    var isDraggingSlider by remember { mutableStateOf(false) }
+    var dragSliderPosition by remember { mutableFloatStateOf(0f) }
+    var lastSeekTime by remember { mutableLongStateOf(0L) }
+
+    val now = System.currentTimeMillis()
+    val isSeekSettling = (now - lastSeekTime) < 450L
+
+    val effectivePositionMs = when {
+        isDraggingSlider -> dragSliderPosition.toLong()
+        isSeekSettling -> dragSliderPosition.toLong()
+        else -> progress.positionMs
+    }.coerceIn(0L, totalDuration)
+
+    val currentSec = effectivePositionMs / 1000
+    val totalSec = totalDuration / 1000
+
+    Column(modifier = modifier.fillMaxWidth()) {
+        Slider(
+            value = effectivePositionMs.toFloat().coerceIn(0f, totalDuration.toFloat().coerceAtLeast(1f)),
+            onValueChange = {
+                isDraggingSlider = true
+                dragSliderPosition = it
+            },
+            onValueChangeFinished = {
+                isDraggingSlider = false
+                lastSeekTime = System.currentTimeMillis()
+                onSeek(dragSliderPosition.toLong())
+            },
+            valueRange = 0f..totalDuration.toFloat().coerceAtLeast(1f),
+            colors = SliderDefaults.colors(
+                thumbColor = VioletPrimary,
+                activeTrackColor = VioletPrimary,
+                inactiveTrackColor = DarkSurfaceVariant
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = formatTime(currentSec),
+                color = TextMuted,
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace
+            )
+            Text(
+                text = formatTime(totalSec),
+                color = TextMuted,
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+    }
 }

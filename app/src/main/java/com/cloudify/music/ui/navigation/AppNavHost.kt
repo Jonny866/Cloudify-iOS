@@ -57,7 +57,6 @@ fun AppNavHost(
     val currentRoute = navBackStackEntry?.destination?.route
 
     val playerState by playerController.state.collectAsState()
-    val playbackProgress by playerController.progress.collectAsState()
     var isFullPlayerVisible by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -113,7 +112,7 @@ fun AppNavHost(
                     ) {
                         MiniPlayer(
                             playerState = playerState,
-                            playbackProgress = playbackProgress,
+                            progressFlow = playerController.progress,
                             isFavorite = favoriteIds.contains(playerState.currentTrack?.id),
                             onPlayPause = { playerController.togglePlayPause() },
                             onNext = { playerController.next() },
@@ -298,7 +297,7 @@ fun AppNavHost(
         ) {
             FullPlayerScreen(
                 playerState = playerState,
-                playbackProgress = playbackProgress,
+                progressFlow = playerController.progress,
                 isFavorite = favoriteIds.contains(playerState.currentTrack?.id),
                 onDismiss = { isFullPlayerVisible = false },
                 onPlayPause = { playerController.togglePlayPause() },

@@ -16,6 +16,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -38,10 +39,13 @@ import com.cloudify.music.core.theme.VioletPrimary
 import com.cloudify.music.core.theme.VioletLight
 import com.cloudify.music.service.PlaybackProgress
 import com.cloudify.music.service.PlayerState
+import androidx.compose.runtime.collectAsState
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun MiniPlayer(
     playerState: PlayerState,
+    progressFlow: StateFlow<PlaybackProgress>? = null,
     playbackProgress: PlaybackProgress = PlaybackProgress(playerState.positionMs, playerState.durationMs),
     isFavorite: Boolean,
     onPlayPause: () -> Unit,
@@ -52,9 +56,16 @@ fun MiniPlayer(
 ) {
     val track = playerState.currentTrack ?: return
 
-    val duration = if (playbackProgress.durationMs > 0) playbackProgress.durationMs else (track.durationMs)
+    val currentProgress = if (progressFlow != null) {
+        val p by progressFlow.collectAsState()
+        p
+    } else {
+        playbackProgress
+    }
+
+    val duration = if (currentProgress.durationMs > 0) currentProgress.durationMs else (track.durationMs)
     val progress = if (duration > 0) {
-        (playbackProgress.positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
+        (currentProgress.positionMs.toFloat() / duration.toFloat()).coerceIn(0f, 1f)
     } else 0f
 
     Box(

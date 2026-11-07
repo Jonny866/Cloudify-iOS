@@ -43,11 +43,7 @@ fun TrackListItem(
     onMoreClick: () -> Unit = {}
 ) {
     val activeColor = VioletLight
-    val itemBgColor by animateColorAsState(
-        targetValue = if (isCurrentTrack) VioletPrimary.copy(alpha = 0.2f) else Color.Transparent,
-        animationSpec = tween(220),
-        label = "track_bg"
-    )
+    val itemBgColor = if (isCurrentTrack) VioletPrimary.copy(alpha = 0.2f) else Color.Transparent
 
     Row(
         modifier = Modifier
