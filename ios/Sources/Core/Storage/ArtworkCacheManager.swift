@@ -19,8 +19,8 @@ public final class ArtworkCacheManager {
     }
 
     private func cacheKey(for urlString: String) -> String {
-        let hash = Insecure.MD5.hash(data: Data(urlString.utf8))
-        return hash.map { String(format: "%02hhx", $0) }.joined() + ".jpg"
+        let hash = SHA256.hash(data: Data(urlString.utf8))
+        return hash.compactMap { String(format: "%02x", $0) }.joined() + ".jpg"
     }
 
     /// Fast synchronous memory-only check

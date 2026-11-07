@@ -449,15 +449,29 @@ public final class MusicRepository: ObservableObject {
         let destDir = documentsURL.appendingPathComponent("Downloads", isDirectory: true)
         try? FileManager.default.createDirectory(at: destDir, withIntermediateDirectories: true)
 
-        let safeName = "track_\(track.id.replacingOccurrences(of: "[^a-zA-Z0-9_]", with: "_", options: .regularExpression)).mp3"
+        let safeId = track.id.replacingOccurrences(of: "[^a-zA-Z0-9_]", with: "_", options: .regularExpression)
+        let safeName = "track_\(safeId).mp3"
         let destURL = destDir.appendingPathComponent(safeName)
 
         // Check if file already exists on disk
         if FileManager.default.fileExists(atPath: destURL.path),
            let attr = try? FileManager.default.attributesOfItem(atPath: destURL.path),
            let size = attr[.size] as? Int64, size > 10000 {
+            var localArtPath: String? = nil
+            let safeArtName = "art_\(safeId).jpg"
+            let artDestURL = destDir.appendingPathComponent(safeArtName)
+            if FileManager.default.fileExists(atPath: artDestURL.path) {
+                localArtPath = artDestURL.path
+            } else if !track.artworkUrl.isEmpty,
+                      let artURL = URL(string: track.artworkUrl),
+                      let (artData, _) = try? await URLSession.shared.data(from: artURL),
+                      artData.count > 500 {
+                ArtworkCacheManager.shared.saveDownloadedArtwork(data: artData, urlString: track.artworkUrl, targetURL: artDestURL)
+                localArtPath = artDestURL.path
+            }
+
             await MainActor.run {
-                self.markTrackAsDownloaded(track, localPath: destURL.path)
+                self.markTrackAsDownloaded(track, localPath: destURL.path, localArtPath: localArtPath)
                 self.activeDownloads.remove(track.id)
                 self.downloadProgress[track.id] = 1.0
                 self.currentBatchCompleted += 1
@@ -524,7 +538,7 @@ public final class MusicRepository: ObservableObject {
                 // Download and cache artwork alongside the track
                 var localArtPath: String? = nil
                 let safeArtName = "art_\(safeId).jpg"
-                let artDestURL = downloadsURL.appendingPathComponent(safeArtName)
+                let artDestURL = destDir.appendingPathComponent(safeArtName)
                 if !track.artworkUrl.isEmpty {
                     if let artURL = URL(string: track.artworkUrl),
                        let (artData, _) = try? await URLSession.shared.data(from: artURL),
