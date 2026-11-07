@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import SwiftUI
 import UserNotifications
 import QuartzCore
 
@@ -468,7 +469,7 @@ public final class MusicRepository: ObservableObject {
 
         guard let url = URL(string: streamUrlString) else {
             await MainActor.run {
-                self.activeDownloads.remove(track.id)
+                _ = self.activeDownloads.remove(track.id)
             }
             return
         }
@@ -483,7 +484,7 @@ public final class MusicRepository: ObservableObject {
 
             guard let httpRes = response as? HTTPURLResponse, (200...299).contains(httpRes.statusCode) else {
                 await MainActor.run {
-                    self.activeDownloads.remove(track.id)
+                    _ = self.activeDownloads.remove(track.id)
                     self.showDownloadToast("Ошибка скачивания: \(track.title)")
                 }
                 return
@@ -517,7 +518,7 @@ public final class MusicRepository: ObservableObject {
 
                 await MainActor.run {
                     self.markTrackAsDownloaded(track, localPath: destURL.path)
-                    self.activeDownloads.remove(track.id)
+                    _ = self.activeDownloads.remove(track.id)
                     self.downloadProgress[track.id] = 1.0
                     self.currentBatchCompleted += 1
                     self.showDownloadToast("✓ Скачано: \(track.title)")
@@ -525,13 +526,13 @@ public final class MusicRepository: ObservableObject {
                 }
             } else {
                 await MainActor.run {
-                    self.activeDownloads.remove(track.id)
+                    _ = self.activeDownloads.remove(track.id)
                     self.showDownloadToast("Ошибка файла: \(track.title)")
                 }
             }
         } catch {
             await MainActor.run {
-                self.activeDownloads.remove(track.id)
+                _ = self.activeDownloads.remove(track.id)
                 self.showDownloadToast("Сбой соединения: \(track.title)")
             }
         }
