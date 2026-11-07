@@ -60,7 +60,12 @@ public struct MainTabView: View {
                 if let artist = navArtistName {
                     ArtistScreenView(
                         artistName: artist,
+                        selectedTab: $selectedTab,
                         onBack: { navArtistName = nil },
+                        onSelectTab: { tab in
+                            selectedTab = tab
+                            navArtistName = nil
+                        },
                         onOpenFullPlayer: { showFullPlayer = true }
                     )
                     .transition(.move(edge: .trailing))

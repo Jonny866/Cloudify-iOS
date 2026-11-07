@@ -42,30 +42,29 @@ public struct CustomTabBar: View {
                         selectedTab = tab
                     }
                 }) {
-                    VStack(spacing: 4) {
+                    VStack(spacing: 3) {
                         Image(systemName: tab.icon)
-                            .font(.system(size: 20, weight: isSelected ? .bold : .medium))
+                            .font(.system(size: 17, weight: isSelected ? .bold : .medium))
                             .foregroundColor(isSelected ? theme.currentTheme.primary : .textMuted)
 
                         Text(tab.title)
-                            .font(.system(size: 11, weight: isSelected ? .bold : .medium))
+                            .font(.system(size: 10, weight: isSelected ? .bold : .medium))
                             .foregroundColor(isSelected ? theme.currentTheme.primary : .textMuted)
                     }
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
-                    .padding(.top, 8)
-                    .padding(.bottom, 4)
+                    .padding(.top, 15)
+                    .padding(.bottom, 5)
                 }
                 .buttonStyle(PlainButtonStyle())
             }
         }
-        .frame(height: 52)
         .background(
             Color.darkSurface
                 .overlay(
                     Rectangle()
-                        .fill(Color.darkBorder.opacity(0.8))
-                        .frame(height: 1),
+                        .fill(Color.darkBorder.opacity(0.6))
+                        .frame(height: 0.5),
                     alignment: .top
                 )
         )

@@ -48,6 +48,13 @@ public enum AppThemeMode: String, CaseIterable, Identifiable {
         }
     }
 
+    public var uiColorPrimary: UIColor {
+        switch self {
+        case .yellow: return UIColor(red: 250/255, green: 204/255, blue: 21/255, alpha: 1.0)
+        case .violet: return UIColor(red: 139/255, green: 92/255, blue: 246/255, alpha: 1.0)
+        }
+    }
+
     public var dark: Color {
         switch self {
         case .yellow: return Color(hex: 0xEAB308)

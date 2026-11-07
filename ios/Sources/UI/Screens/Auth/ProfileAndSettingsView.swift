@@ -206,22 +206,24 @@ public struct ProfileAndSettingsView: View {
                         // Settings Card
                         VStack(spacing: 16) {
                             // 1. Theme Color Selection (lowercase titles, no word wrap)
-                            HStack {
+                            HStack(spacing: 8) {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Цветовая тема")
                                         .font(.system(size: 15, weight: .semibold))
                                         .foregroundColor(.textPrimary)
                                     Text("Фиолетовый или жёлтый стиль")
-                                        .font(.system(size: 12))
+                                        .font(.system(size: 11))
                                         .foregroundColor(.textMuted)
                                 }
+                                .layoutPriority(0)
 
                                 Spacer()
 
-                                HStack(spacing: 8) {
+                                HStack(spacing: 6) {
                                     themePill(mode: .violet, name: "фиолетовый", color: Color(hex: 0x8B5CF6))
                                     themePill(mode: .yellow, name: "жёлтый", color: Color(hex: 0xFACC15))
                                 }
+                                .layoutPriority(1)
                             }
 
                             Divider().background(Color.darkBorder)
@@ -465,15 +467,15 @@ public struct ProfileAndSettingsView: View {
             HStack(spacing: 5) {
                 Circle()
                     .fill(color)
-                    .frame(width: 8, height: 8)
+                    .frame(width: 7, height: 7)
                 Text(name)
-                    .font(.system(size: 12, weight: isSelected ? .bold : .regular))
+                    .font(.system(size: 11, weight: isSelected ? .bold : .medium))
                     .foregroundColor(isSelected ? .textPrimary : .textSecondary)
                     .lineLimit(1)
                     .fixedSize(horizontal: true, vertical: false)
             }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 7)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 6)
             .background(isSelected ? color.opacity(0.2) : Color.darkSurface)
             .clipShape(RoundedRectangle(cornerRadius: 10))
             .overlay(

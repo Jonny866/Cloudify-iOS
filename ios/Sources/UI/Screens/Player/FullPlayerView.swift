@@ -1,10 +1,90 @@
 import SwiftUI
 import AVKit
+import AVFoundation
+
+public class AudioRouteObserver: ObservableObject {
+    public static let shared = AudioRouteObserver()
+
+    @Published public var routeName: String = "Динамик iPhone"
+    @Published public var routeIcon: String = "speaker.wave.2.fill"
+    @Published public var isExternal: Bool = false
+
+    private init() {
+        updateRoute()
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleRouteChange),
+            name: AVAudioSession.routeChangeNotification,
+            object: nil
+        )
+    }
+
+    @objc private func handleRouteChange(_ notification: Notification) {
+        DispatchQueue.main.async { [weak self] in
+            self?.updateRoute()
+        }
+    }
+
+    public func updateRoute() {
+        let session = AVAudioSession.sharedInstance()
+        guard let output = session.currentRoute.outputs.first else {
+            routeName = "Динамик iPhone"
+            routeIcon = "speaker.wave.2.fill"
+            isExternal = false
+            return
+        }
+
+        let portType = output.portType
+        let portName = output.portName
+
+        switch portType {
+        case .headphones:
+            routeName = portName.isEmpty ? "Наушники" : portName
+            routeIcon = "headphones"
+            isExternal = true
+        case .bluetoothA2DP, .bluetoothHFP, .bluetoothLE:
+            routeName = portName.isEmpty ? "Bluetooth" : portName
+            if portName.lowercased().contains("airpod") {
+                routeIcon = "airpodspro"
+            } else {
+                routeIcon = "headphones"
+            }
+            isExternal = true
+        case .airPlay:
+            routeName = portName.isEmpty ? "AirPlay" : portName
+            routeIcon = "airplayaudio"
+            isExternal = true
+        case .carAudio:
+            routeName = portName.isEmpty ? "CarPlay" : portName
+            routeIcon = "car.fill"
+            isExternal = true
+        case .builtInSpeaker:
+            routeName = "Динамик iPhone"
+            routeIcon = "speaker.wave.2.fill"
+            isExternal = false
+        default:
+            if portName.lowercased().contains("airpod") {
+                routeName = portName
+                routeIcon = "airpodspro"
+                isExternal = true
+            } else if portName.lowercased().contains("headphone") || portName.lowercased().contains("наушник") {
+                routeName = portName
+                routeIcon = "headphones"
+                isExternal = true
+            } else {
+                routeName = portName.isEmpty ? "Динамик iPhone" : portName
+                routeIcon = "speaker.wave.2.fill"
+                isExternal = false
+            }
+        }
+    }
+}
 
 public struct FullPlayerView: View {
     @ObservedObject var player = AudioPlayerService.shared
     @ObservedObject var repo = MusicRepository.shared
     @ObservedObject var theme = ThemeManager.shared
+    @ObservedObject var routeObserver = AudioRouteObserver.shared
 
     public let onDismiss: () -> Void
     public let onArtistClick: (String) -> Void
@@ -266,16 +346,26 @@ public struct FullPlayerView: View {
         }
     }
 
-    // Bottom Bar (AirPlay / Device route, Lyrics)
+    // Bottom Bar (AirPlay / Device route, Download, Lyrics)
     private func bottomBarSection(track: Track) -> some View {
         HStack {
-            // AirPlay picker
-            AirPlayRoutePicker()
-                .frame(width: 32, height: 32)
+            // Audio Route with native AirPlay picker trigger
+            ZStack(alignment: .leading) {
+                HStack(spacing: 8) {
+                    Image(systemName: routeObserver.routeIcon)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(theme.currentTheme.primary)
 
-            Text("Динамик iPhone")
-                .font(.system(size: 12, weight: .medium))
-                .foregroundColor(.textSecondary)
+                    Text(routeObserver.routeName)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundColor(.textPrimary)
+                        .lineLimit(1)
+                }
+
+                AirPlayRoutePicker(tint: theme.currentTheme.uiColorPrimary)
+                    .frame(maxWidth: 180, maxHeight: 36)
+                    .opacity(0.015)
+            }
 
             Spacer()
 
@@ -378,13 +468,22 @@ public struct FullPlayerView: View {
 
 // Native AirPlay Picker wrapper
 public struct AirPlayRoutePicker: UIViewRepresentable {
+    public var tint: UIColor
+
+    public init(tint: UIColor) {
+        self.tint = tint
+    }
+
     public func makeUIView(context: Context) -> AVRoutePickerView {
         let routePicker = AVRoutePickerView()
-        routePicker.tintColor = UIColor.white
-        routePicker.activeTintColor = UIColor(red: 250/255, green: 204/255, blue: 21/255, alpha: 1.0)
+        routePicker.tintColor = tint
+        routePicker.activeTintColor = tint
         routePicker.prioritizesVideoDevices = false
         return routePicker
     }
 
-    public func updateUIView(_ uiView: AVRoutePickerView, context: Context) {}
+    public func updateUIView(_ uiView: AVRoutePickerView, context: Context) {
+        uiView.tintColor = tint
+        uiView.activeTintColor = tint
+    }
 }

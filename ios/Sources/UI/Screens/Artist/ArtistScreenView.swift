@@ -2,7 +2,9 @@ import SwiftUI
 
 public struct ArtistScreenView: View {
     public let artistName: String
+    @Binding public var selectedTab: MainTab
     public let onBack: () -> Void
+    public var onSelectTab: ((MainTab) -> Void)? = nil
     public var onOpenFullPlayer: (() -> Void)? = nil
 
     @ObservedObject var repo = MusicRepository.shared
@@ -13,6 +15,20 @@ public struct ArtistScreenView: View {
     @State private var isLoading: Bool = true
     @State private var selectedAlbum: Album? = nil
     @State private var actionTrack: Track? = nil
+
+    public init(
+        artistName: String,
+        selectedTab: Binding<MainTab>,
+        onBack: @escaping () -> Void,
+        onSelectTab: ((MainTab) -> Void)? = nil,
+        onOpenFullPlayer: (() -> Void)? = nil
+    ) {
+        self.artistName = artistName
+        self._selectedTab = selectedTab
+        self.onBack = onBack
+        self.onSelectTab = onSelectTab
+        self.onOpenFullPlayer = onOpenFullPlayer
+    }
 
     public var body: some View {
         ZStack(alignment: .top) {
@@ -53,7 +69,7 @@ public struct ArtistScreenView: View {
                         // All Releases from SoundCloud
                         allTracksSection(detail: detail)
 
-                        Spacer(minLength: 120)
+                        Spacer(minLength: 160)
                     }
                 }
             }
@@ -74,13 +90,25 @@ public struct ArtistScreenView: View {
                 Spacer()
             }
 
-            // Docked Mini Player at bottom if track is playing
-            VStack {
+            // Docked Stack: Mini Player + Custom Tab Bar
+            VStack(spacing: 0) {
                 Spacer()
+
                 MiniPlayerView(onOpenFullPlayer: {
                     onOpenFullPlayer?()
                 })
-                .padding(.bottom, 12)
+
+                CustomTabBar(selectedTab: Binding(
+                    get: { selectedTab },
+                    set: { newTab in
+                        selectedTab = newTab
+                        onSelectTab?(newTab)
+                    }
+                ))
+                .background(
+                    Color.darkSurface
+                        .ignoresSafeArea(edges: .bottom)
+                )
             }
         }
         .task {

@@ -163,48 +163,17 @@ public struct LibraryScreenView: View {
             }
             Button("Отмена", role: .cancel) {}
         }
-        .fileImporter(
-            isPresented: $showFileImporter,
-            allowedContentTypes: [
-                UTType.text,
-                UTType.plainText,
-                UTType.utf8PlainText,
-                UTType.item,
-                UTType.data,
-                UTType(filenameExtension: "txt")
-            ].compactMap { $0 },
-            allowsMultipleSelection: false
-        ) { result in
-            switch result {
-            case .success(let urls):
-                guard let url = urls.first else { return }
-                let canAccess = url.startAccessingSecurityScopedResource()
-                defer {
-                    if canAccess { url.stopAccessingSecurityScopedResource() }
+        .sheet(isPresented: $showFileImporter) {
+            DocumentPickerView(
+                onPick: { url in
+                    showFileImporter = false
+                    handleImportedFile(url: url)
+                },
+                onCancel: {
+                    showFileImporter = false
                 }
-
-                var textContent: String?
-                if let str = try? String(contentsOf: url, encoding: .utf8) {
-                    textContent = str
-                } else if let data = try? Data(contentsOf: url) {
-                    textContent = String(data: data, encoding: .utf8)
-                        ?? String(data: data, encoding: .windowsCP1251)
-                        ?? String(data: data, encoding: .ascii)
-                }
-
-                if let text = textContent, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                    Task {
-                        await MainActor.run { isImporting = true }
-                        let res = await repo.importTracksFromText(text)
-                        await MainActor.run {
-                            isImporting = false
-                            importResultText = "Импортировано \(res.imported) из \(res.total) треков"
-                        }
-                    }
-                }
-            case .failure(let err):
-                print("File import error: \(err)")
-            }
+            )
+            .ignoresSafeArea(.all)
         }
         .sheet(item: $actionTrack) { track in
             TrackActionSheet(
@@ -217,6 +186,35 @@ public struct LibraryScreenView: View {
                 onDismiss: { actionTrack = nil }
             )
             .presentationDetents([.fraction(0.4)])
+        }
+    }
+
+    private func handleImportedFile(url: URL) {
+        var textContent: String?
+        if let data = try? Data(contentsOf: url) {
+            textContent = String(data: data, encoding: .utf8)
+                ?? String(data: data, encoding: .windowsCP1251)
+                ?? String(data: data, encoding: .utf16)
+                ?? String(data: data, encoding: .ascii)
+        } else if let str = try? String(contentsOf: url, encoding: .utf8) {
+            textContent = str
+        }
+
+        try? FileManager.default.removeItem(at: url)
+
+        guard let text = textContent, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            importResultText = "Файл пуст или повреждён"
+            return
+        }
+
+        Task {
+            await MainActor.run { isImporting = true }
+            let res = await repo.importTracksFromText(text)
+            await MainActor.run {
+                isImporting = false
+                repo.isImportCompleted = true
+                importResultText = "Импортировано \(res.imported) из \(res.total) треков"
+            }
         }
     }
 
@@ -448,5 +446,55 @@ public struct LibraryScreenView: View {
             }
         }
         .padding(.top, 10)
+    }
+}
+
+// Native Document Picker ensuring .txt and other files are selectable on iOS
+public struct DocumentPickerView: UIViewControllerRepresentable {
+    public let onPick: (URL) -> Void
+    public var onCancel: (() -> Void)? = nil
+
+    public init(onPick: @escaping (URL) -> Void, onCancel: (() -> Void)? = nil) {
+        self.onPick = onPick
+        self.onCancel = onCancel
+    }
+
+    public func makeCoordinator() -> Coordinator {
+        Coordinator(parent: self)
+    }
+
+    public func makeUIViewController(context: Context) -> UIDocumentPickerViewController {
+        let types: [UTType] = [
+            .plainText,
+            .text,
+            .utf8PlainText,
+            UTType(filenameExtension: "txt") ?? .plainText,
+            .item,
+            .data
+        ]
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: types, asCopy: true)
+        picker.delegate = context.coordinator
+        picker.allowsMultipleSelection = false
+        picker.shouldShowFileExtensions = true
+        return picker
+    }
+
+    public func updateUIViewController(_ uiViewController: UIDocumentPickerViewController, context: Context) {}
+
+    public class Coordinator: NSObject, UIDocumentPickerDelegate {
+        let parent: DocumentPickerView
+
+        init(parent: DocumentPickerView) {
+            self.parent = parent
+        }
+
+        public func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+            guard let url = urls.first else { return }
+            parent.onPick(url)
+        }
+
+        public func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+            parent.onCancel?()
+        }
     }
 }
